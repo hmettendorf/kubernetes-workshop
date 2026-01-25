@@ -1,0 +1,140 @@
+name: Generate Presentation PDFs
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'presentation/**'
+  pull_request:
+    paths:
+      - 'presentation/**'
+  workflow_dispatch:
+
+jobs:
+  generate-pdf:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install -g http-server
+          # Install decktape for PDF generation
+          npm install -g decktape
+          
+          # Install Chromium dependencies for Ubuntu
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libnspr4 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2
+
+      - name: Generate PDF from Argo CD presentation
+        run: |
+          # Start HTTP server in background
+          cd presentation/argocd
+          http-server -p 8080 &
+          SERVER_PID=$!
+          
+          # Wait for server to start
+          sleep 5
+          
+          # Generate PDF using decktape with no-sandbox flags
+          decktape automatic \
+            --size 1920x1080 \
+            --load-pause 2000 \
+            --chrome-arg=--no-sandbox \
+            --chrome-arg=--disable-setuid-sandbox \
+            --chrome-arg=--disable-dev-shm-usage \
+            --chrome-arg=--disable-gpu \
+            http://localhost:8080/index.html \
+            argocd-presentation.pdf
+          
+          # Stop the server
+          kill $SERVER_PID
+          
+          # Move PDF to root for artifact upload
+          mv argocd-presentation.pdf ../../argocd-presentation.pdf
+
+      - name: Upload PDF as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: presentation-pdfs
+          path: |
+            argocd-presentation.pdf
+          retention-days: 90
+
+      - name: Create presentation archive
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          # Create a release-ready archive with all materials
+          mkdir -p release-archive
+          cp argocd-presentation.pdf release-archive/
+          cp -r presentation release-archive/
+          cp -r handson release-archive/
+          cp README.md release-archive/
+          cp ARGOCD_WORKSHOP_SUMMARY.md release-archive/
+          
+          # Create tar.gz archive
+          tar -czf workshop-materials.tar.gz release-archive/
+          
+          # Create zip archive for Windows users
+          zip -r workshop-materials.zip release-archive/
+
+      - name: Upload workshop materials archive
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: workshop-materials
+          path: |
+            workshop-materials.tar.gz
+            workshop-materials.zip
+          retention-days: 90
+
+      - name: Generate PDF summary
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          echo "## 📊 PDF Generation Summary" > pdf-summary.md
+          echo "" >> pdf-summary.md
+          echo "✅ **Argo CD Presentation PDF**: Generated successfully" >> pdf-summary.md
+          echo "" >> pdf-summary.md
+          echo "### Files Generated:" >> pdf-summary.md
+          echo "- \`argocd-presentation.pdf\` - $(du -h argocd-presentation.pdf | cut -f1)" >> pdf-summary.md
+          echo "- \`workshop-materials.tar.gz\` - $(du -h workshop-materials.tar.gz | cut -f1)" >> pdf-summary.md
+          echo "- \`workshop-materials.zip\` - $(du -h workshop-materials.zip | cut -f1)" >> pdf-summary.md
+          echo "" >> pdf-summary.md
+          echo "### Download Links:" >> pdf-summary.md
+          echo "PDFs are available as workflow artifacts for 90 days." >> pdf-summary.md
+
+      - name: Comment on PR with PDF info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('pdf-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });

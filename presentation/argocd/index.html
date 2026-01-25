@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitOps with Argo CD - Workshop</title>
+    <link rel="stylesheet" href="css/normalize.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow: hidden;
+        }
+
+        /* Hide all slides by default but allow transitions */
+        .step {
+            width: 1000px;
+            padding: 40px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            font-size: 24px;
+            line-height: 1.6;
+            opacity: 0;
+            transition: opacity 1000ms ease-in-out;
+        }
+
+        /* Show the active slide with fade-in */
+        .step.active {
+            opacity: 1;
+        }
+
+        /* During transition, show both slides briefly */
+        .step.present {
+            opacity: 1;
+        }
+
+        /* Keep past and future slides invisible */
+        .step.past {
+            opacity: 0;
+        }
+
+        .step.future {
+            opacity: 0;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #764ba2;
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #667eea;
+            font-size: 1.6em;
+            margin-top: 30px;
+        }
+
+        ul, ol {
+            margin: 20px 0;
+            padding-left: 40px;
+        }
+
+        li {
+            margin: 15px 0;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.8em;
+        }
+
+        .highlight {
+            color: #e83e8c;
+            font-weight: bold;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 5em;
+            margin: 20px 0;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            color: #666;
+            text-align: center;
+        }
+
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .diagram {
+            text-align: center;
+            font-size: 0.9em;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .comparison-item {
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .traditional {
+            background: #ffe5e5;
+            border: 2px solid #ff6b6b;
+        }
+
+        .gitops {
+            background: #e5ffe5;
+            border: 2px solid #51cf66;
+        }
+    </style>
+</head>
+<body>
+    <div id="impress">
+        
+        <!-- Slide 1: Title -->
+        <div class="step" data-x="0" data-y="0" data-scale="1">
+            <h1 class="center logo">🚀</h1>
+            <h1>GitOps with Argo CD</h1>
+            <p class="subtitle">Declarative, Git-driven Continuous Delivery for Kubernetes</p>
+            <div class="center" style="margin-top: 60px;">
+                <p><strong>Day 2 Workshop</strong></p>
+                <p>From Manual Deployments to Automated GitOps</p>
+            </div>
+        </div>
+
+        <!-- Slide 2: What is GitOps? -->
+        <div class="step" data-x="1200" data-y="0">
+            <h2>🧭 What is GitOps?</h2>
+            <p><strong>GitOps</strong> is a paradigm for managing infrastructure and applications where <span class="highlight">Git is the single source of truth</span>.</p>
+            
+            <h3>Core Principles:</h3>
+            <ol>
+                <li><strong>Declarative</strong> - System state described declaratively</li>
+                <li><strong>Versioned & Immutable</strong> - State stored in Git with full history</li>
+                <li><strong>Pulled Automatically</strong> - Agents pull desired state from Git</li>
+                <li><strong>Continuously Reconciled</strong> - Software agents ensure state matches declaration</li>
+            </ol>
+
+            <div class="note">
+                <strong>💡 Key Insight:</strong> You don't push changes to production. You push to Git, and automation does the rest.
+            </div>
+        </div>
+
+        <!-- Slide 3: Traditional vs GitOps -->
+        <div class="step" data-x="2400" data-y="0">
+            <h2>⚖️ Traditional vs GitOps</h2>
+            
+            <div class="comparison">
+                <div class="comparison-item traditional">
+                    <h3>❌ Traditional (Push)</h3>
+                    <ul>
+                        <li>Manual <code>kubectl apply</code></li>
+                        <li>CI/CD pushes to cluster</li>
+                        <li>Credentials in CI pipeline</li>
+                        <li>No drift detection</li>
+                        <li>Hard to audit</li>
+                    </ul>
+                </div>
+                
+                <div class="comparison-item gitops">
+                    <h3>✅ GitOps (Pull)</h3>
+                    <ul>
+                        <li>Git commit triggers sync</li>
+                        <li>Agent pulls from Git</li>
+                        <li>No cluster credentials needed</li>
+                        <li>Automatic drift detection</li>
+                        <li>Full audit trail in Git</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="success">
+                <strong>Result:</strong> Git becomes your deployment interface, rollback mechanism, and audit log!
+            </div>
+        </div>
+
+        <!-- Slide 4: Declarative vs Imperative -->
+        <div class="step" data-x="3600" data-y="0">
+            <h2>📋 Declarative vs Imperative</h2>
+            
+            <h3>Imperative (HOW):</h3>
+            <pre>kubectl create deployment nginx --image=nginx:1.21
+kubectl scale deployment nginx --replicas=3
+kubectl set image deployment/nginx nginx=nginx:1.22</pre>
+            
+            <h3>Declarative (WHAT):</h3>
+            <pre>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.22</pre>
+
+            <div class="note">
+                <strong>💡 GitOps Advantage:</strong> Declarative configs can be versioned, reviewed, and rolled back easily.
+            </div>
+        </div>
+
+        <!-- Slide 5: Desired State & Reconciliation -->
+        <div class="step" data-x="4800" data-y="0">
+            <h2>🔄 Desired State & Reconciliation</h2>
+            
+            <div class="diagram">
+                <strong>Reconciliation Loop:</strong><br><br>
+                Git Repository (Desired State)<br>
+                ⬇️<br>
+                Argo CD reads manifests<br>
+                ⬇️<br>
+                Compares with Kubernetes (Actual State)<br>
+                ⬇️<br>
+                Applies changes if drift detected<br>
+                ⬇️<br>
+                Kubernetes Cluster (Synced State)
+            </div>
+
+            <h3>Key Benefits:</h3>
+            <ul>
+                <li><strong>Self-healing</strong> - Manual changes are reverted</li>
+                <li><strong>Drift detection</strong> - Know when reality differs from Git</li>
+                <li><strong>Consistency</strong> - Same state across environments</li>
+            </ul>
+        </div>
+
+        <!-- Slide 6: Git as Source of Truth -->
+        <div class="step" data-x="6000" data-y="0">
+            <h2>📚 Git as Single Source of Truth</h2>
+            
+            <h3>Everything in Git:</h3>
+            <ul>
+                <li>Application manifests (Deployments, Services, etc.)</li>
+                <li>Configuration (ConfigMaps, environment-specific values)</li>
+                <li>Infrastructure as Code (Helm charts, Kustomize overlays)</li>
+                <li>Policy definitions (NetworkPolicies, RBAC)</li>
+            </ul>
+
+            <div class="success">
+                <strong>Benefits:</strong>
+                <ul>
+                    <li>✅ Complete audit trail (who changed what, when, why)</li>
+                    <li>✅ Easy rollback (git revert)</li>
+                    <li>✅ Collaboration via Pull Requests</li>
+                    <li>✅ Disaster recovery (recreate from Git)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 7: Argo CD Introduction -->
+        <div class="step" data-x="0" data-y="1200">
+            <h2>🎯 Introducing Argo CD</h2>
+            
+            <p><strong>Argo CD</strong> is a declarative, GitOps continuous delivery tool for Kubernetes.</p>
+            
+            <h3>Why Argo CD?</h3>
+            <ul>
+                <li><strong>Kubernetes-Native</strong> - CRDs, controllers, familiar patterns</li>
+                <li><strong>Declarative</strong> - Everything as code in Git</li>
+                <li><strong>Automated Sync</strong> - Continuous reconciliation</li>
+                <li><strong>Rich UI</strong> - Visual representation of apps</li>
+                <li><strong>Multi-tenant</strong> - AppProjects for team isolation</li>
+                <li><strong>Extensible</strong> - Supports Helm, Kustomize, and more</li>
+            </ul>
+
+            <div class="note">
+                <strong>💡 Fun Fact:</strong> Argo CD has over 14k+ GitHub stars and is a CNCF graduated project!
+            </div>
+        </div>
+
+        <!-- Slide 8: Argo CD Architecture -->
+        <div class="step" data-x="1200" data-y="1200">
+            <h2>🏗️ Argo CD Architecture</h2>
+            
+            <h3>Core Components:</h3>
+            <ul>
+                <li><strong>API Server</strong> - REST/gRPC API, Web UI, CLI</li>
+                <li><strong>Repository Server</strong> - Clones Git repos, generates manifests</li>
+                <li><strong>Application Controller</strong> - Monitors apps, compares desired vs actual state</li>
+                <li><strong>Redis</strong> - Caching layer</li>
+                <li><strong>Dex</strong> - Optional identity provider integration</li>
+            </ul>
+
+            <div class="diagram">
+                User → API Server → Repository Server → Git<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Application Controller → Kubernetes API
+            </div>
+        </div>
+
+        <!-- Slide 9: Applications -->
+        <div class="step" data-x="2400" data-y="1200">
+            <h2>📦 Argo CD Applications</h2>
+            
+            <p>An <strong>Application</strong> is a CRD that represents a deployable unit.</p>
+            
+            <h3>Application Manifest:</h3>
+            <pre>apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/myorg/myrepo
+    targetRevision: HEAD
+    path: k8s/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true</pre>
+        </div>
+
+        <!-- Slide 10: AppProjects -->
+        <div class="step" data-x="3600" data-y="1200">
+            <h2>🎫 AppProjects</h2>
+            
+            <p><strong>AppProjects</strong> provide logical grouping and multi-tenancy.</p>
+            
+            <h3>Project Capabilities:</h3>
+            <ul>
+                <li>Restrict which Git repos can be used</li>
+                <li>Limit destination clusters and namespaces</li>
+                <li>Define allowed/denied resource types</li>
+                <li>Set sync windows (maintenance windows)</li>
+                <li>Configure RBAC policies</li>
+            </ul>
+
+            <div class="note">
+                <strong>💡 Use Case:</strong> Team A can only deploy to namespaces team-a-* from their repos, while Team B has their own restrictions.
+            </div>
+        </div>
+
+        <!-- Slide 11: Sync Strategies -->
+        <div class="step" data-x="4800" data-y="1200">
+            <h2>🔄 Sync Strategies</h2>
+            
+            <h3>Manual Sync:</h3>
+            <ul>
+                <li>Changes detected but not applied automatically</li>
+                <li>User must click "Sync" in UI or use CLI</li>
+                <li>Good for production environments requiring approval</li>
+            </ul>
+
+            <h3>Automated Sync:</h3>
+            <ul>
+                <li><code>automated: {}</code> - Auto-sync on Git changes</li>
+                <li><code>prune: true</code> - Delete resources removed from Git</li>
+                <li><code>selfHeal: true</code> - Revert manual changes to cluster</li>
+            </ul>
+
+            <pre>syncPolicy:
+  automated:
+    prune: true
+    selfHeal: true
+  syncOptions:
+  - CreateNamespace=true</pre>
+        </div>
+
+        <!-- Slide 12: Drift Detection -->
+        <div class="step" data-x="6000" data-y="1200">
+            <h2>🔍 Drift Detection</h2>
+            
+            <p><strong>Drift</strong> occurs when cluster state differs from Git state.</p>
+            
+            <h3>Common Causes:</h3>
+            <ul>
+                <li>Manual <code>kubectl</code> changes</li>
+                <li>Other tools modifying resources</li>
+                <li>Operator or controller updates</li>
+                <li>Pod autoscaling (HPA)</li>
+            </ul>
+
+            <h3>Argo CD's Response:</h3>
+            <ul>
+                <li><strong>Detection</strong> - Shows "OutOfSync" status</li>
+                <li><strong>Diff View</strong> - Displays exact differences</li>
+                <li><strong>Self-Heal</strong> - Auto-reverts if enabled</li>
+            </ul>
+
+            <div class="success">
+                <strong>Result:</strong> You always know the true state of your applications!
+            </div>
+        </div>
+
+        <!-- Slide 13: Helm Support -->
+        <div class="step" data-x="0" data-y="2400">
+            <h2>⎈ Helm Integration</h2>
+            
+            <p>Argo CD has <strong>native Helm support</strong> - no Tiller needed!</p>
+            
+            <h3>Helm in Argo CD:</h3>
+            <pre>spec:
+  source:
+    repoURL: https://github.com/myorg/charts
+    targetRevision: HEAD
+    path: charts/demo-app
+    helm:
+      releaseName: demo
+      valueFiles:
+      - values-prod.yaml
+      parameters:
+      - name: image.tag
+        value: "v1.2.3"</pre>
+
+            <div class="note">
+                <strong>💡 Benefit:</strong> Use Helm for templating + Argo CD for GitOps. Best of both worlds!
+            </div>
+        </div>
+
+        <!-- Slide 14: Kustomize Support -->
+        <div class="step" data-x="1200" data-y="2400">
+            <h2>🛠️ Kustomize Integration</h2>
+            
+            <p>Argo CD has <strong>built-in Kustomize support</strong>.</p>
+            
+            <h3>Kustomize in Argo CD:</h3>
+            <pre>spec:
+  source:
+    repoURL: https://github.com/myorg/k8s
+    targetRevision: HEAD
+    path: overlays/production
+    kustomize:
+      namePrefix: prod-
+      commonLabels:
+        environment: production
+      images:
+      - name: app
+        newTag: v1.2.3</pre>
+
+            <h3>When to Use:</h3>
+            <ul>
+                <li>Environment-specific configurations</li>
+                <li>Patching base manifests</li>
+                <li>Simpler than Helm for basic needs</li>
+            </ul>
+        </div>
+
+        <!-- Slide 15: App of Apps Pattern -->
+        <div class="step" data-x="2400" data-y="2400">
+            <h2>🎯 App of Apps Pattern</h2>
+            
+            <p>Deploy <strong>Applications that deploy Applications</strong> - recursive GitOps!</p>
+            
+            <h3>Use Cases:</h3>
+            <ul>
+                <li>Bootstrap entire environments</li>
+                <li>Manage multiple microservices</li>
+                <li>Team-specific application sets</li>
+            </ul>
+
+            <div class="diagram">
+                Root App<br>
+                ├── Infrastructure App (monitoring, ingress)<br>
+                ├── Platform App (databases, queues)<br>
+                └── Application Apps (microservices)
+            </div>
+
+            <div class="success">
+                <strong>Result:</strong> Deploy entire platform with a single Application!
+            </div>
+        </div>
+
+        <!-- Slide 16: Environment Promotion -->
+        <div class="step" data-x="3600" data-y="2400">
+            <h2>🚀 Environment Promotion</h2>
+            
+            <h3>Strategy 1: Branch per Environment</h3>
+            <ul>
+                <li><code>dev</code> branch → Dev cluster</li>
+                <li><code>staging</code> branch → Staging cluster</li>
+                <li><code>main</code> branch → Production cluster</li>
+            </ul>
+
+            <h3>Strategy 2: Directory per Environment</h3>
+            <pre>k8s/
+├── base/
+├── overlays/
+│   ├── dev/
+│   ├── staging/
+│   └── production/</pre>
+
+            <div class="note">
+                <strong>💡 Best Practice:</strong> Use Kustomize overlays or Helm values per environment in same repo.
+            </div>
+        </div>
+
+        <!-- Slide 17: Health Status -->
+        <div class="step" data-x="4800" data-y="2400">
+            <h2>💚 Health & Sync Status</h2>
+            
+            <h3>Sync Status:</h3>
+            <ul>
+                <li><strong>Synced</strong> - Git matches cluster</li>
+                <li><strong>OutOfSync</strong> - Differences detected</li>
+                <li><strong>Unknown</strong> - Unable to determine</li>
+            </ul>
+
+            <h3>Health Status:</h3>
+            <ul>
+                <li><strong>Healthy</strong> - All resources running correctly</li>
+                <li><strong>Progressing</strong> - Deployment in progress</li>
+                <li><strong>Degraded</strong> - Some resources failing</li>
+                <li><strong>Missing</strong> - Resources not found</li>
+                <li><strong>Suspended</strong> - Paused resources (CronJobs)</li>
+            </ul>
+        </div>
+
+        <!-- Slide 18: RBAC -->
+        <div class="step" data-x="6000" data-y="2400">
+            <h2>🔐 RBAC in Argo CD</h2>
+            
+            <p>Control who can do what with Applications.</p>
+            
+            <h3>Example Policy:</h3>
+            <pre>p, role:developers, applications, get, default/*, allow
+p, role:developers, applications, sync, default/*, allow
+p, role:developers, applications, delete, default/*, deny
+
+g, alice, role:developers</pre>
+
+            <h3>Actions:</h3>
+            <ul>
+                <li><code>get</code> - View applications</li>
+                <li><code>sync</code> - Trigger deployments</li>
+                <li><code>override</code> - Bypass sync windows</li>
+                <li><code>delete</code> - Remove applications</li>
+            </ul>
+        </div>
+
+        <!-- Slide 19: Secrets Management -->
+        <div class="step" data-x="0" data-y="3600">
+            <h2>🔒 Handling Secrets</h2>
+            
+            <p><strong>Problem:</strong> Don't store secrets in Git!</p>
+            
+            <h3>Solutions:</h3>
+            <ul>
+                <li><strong>Sealed Secrets</strong> - Encrypt secrets for Git storage</li>
+                <li><strong>External Secrets Operator</strong> - Sync from external vaults</li>
+                <li><strong>Helm Secrets</strong> - SOPS encryption for Helm values</li>
+                <li><strong>Vault</strong> - HashiCorp Vault integration</li>
+            </ul>
+
+            <div class="note">
+                <strong>💡 Recommended:</strong> External Secrets Operator for production use.
+            </div>
+        </div>
+
+        <!-- Slide 20: Troubleshooting -->
+        <div class="step" data-x="1200" data-y="3600">
+            <h2>🔧 Troubleshooting Tips</h2>
+            
+            <h3>Common Issues:</h3>
+            <ul>
+                <li><strong>OutOfSync forever</strong>
+                    <ul><li>Check resource hooks, health checks</li></ul>
+                </li>
+                <li><strong>Sync fails silently</strong>
+                    <ul><li>Review logs: <code>kubectl logs -n argocd deployment/argocd-application-controller</code></li></ul>
+                </li>
+                <li><strong>Permission denied</strong>
+                    <ul><li>Check AppProject restrictions</li></ul>
+                </li>
+                <li><strong>Helm chart issues</strong>
+                    <ul><li>Test locally: <code>helm template</code></li></ul>
+                </li>
+            </ul>
+
+            <h3>Debug Commands:</h3>
+            <pre>argocd app get myapp
+argocd app diff myapp
+argocd app logs myapp</pre>
+        </div>
+
+        <!-- Slide 21: Best Practices -->
+        <div class="step" data-x="2400" data-y="3600">
+            <h2>✨ GitOps Best Practices</h2>
+            
+            <ul>
+                <li>✅ <strong>One repo per team/project</strong> - Clear boundaries</li>
+                <li>✅ <strong>Separate app code and config</strong> - Different repos for CI and CD</li>
+                <li>✅ <strong>Use AppProjects</strong> - Enforce multi-tenancy</li>
+                <li>✅ <strong>Enable prune and selfHeal</strong> - In dev/staging</li>
+                <li>✅ <strong>Manual sync in production</strong> - With approval process</li>
+                <li>✅ <strong>Meaningful commit messages</strong> - They're your deployment log</li>
+                <li>✅ <strong>Use PR reviews</strong> - Production changes require review</li>
+                <li>✅ <strong>Monitor sync status</strong> - Alert on sync failures</li>
+            </ul>
+        </div>
+
+        <!-- Slide 22: Anti-patterns -->
+        <div class="step" data-x="3600" data-y="3600">
+            <h2>❌ GitOps Anti-patterns</h2>
+            
+            <ul>
+                <li>❌ <strong>Manual kubectl changes</strong> - Use Git or they'll be reverted</li>
+                <li>❌ <strong>Secrets in Git</strong> - Use secret management tools</li>
+                <li>❌ <strong>Single giant repo</strong> - Hard to manage, slow clones</li>
+                <li>❌ <strong>No RBAC</strong> - Everyone can deploy everywhere</li>
+                <li>❌ <strong>Ignoring drift</strong> - Defeats purpose of GitOps</li>
+                <li>❌ <strong>Generated manifests in Git</strong> - Store templates, not generated YAML</li>
+                <li>❌ <strong>Complex Helm values</strong> - Keep it simple and readable</li>
+            </ul>
+        </div>
+
+        <!-- Slide 23: Lab Overview -->
+        <div class="step" data-x="4800" data-y="3600">
+            <h2>🧪 Lab Exercises Overview</h2>
+            
+            <h3>Lab 1: Installation & Setup</h3>
+            <p>Install Argo CD, access UI and CLI</p>
+
+            <h3>Lab 2: First Application</h3>
+            <p>Deploy a demo app from Git repository</p>
+
+            <h3>Lab 3: Drift Detection</h3>
+            <p>Make manual changes and observe reconciliation</p>
+
+            <h3>Lab 4: AppProjects</h3>
+            <p>Set up multi-tenancy with restrictions</p>
+
+            <h3>Lab 5: App of Apps</h3>
+            <p>Bootstrap entire environment</p>
+
+            <h3>Lab 6: Environment Promotion</h3>
+            <p>Promote changes from dev to production</p>
+        </div>
+
+        <!-- Slide 24: Summary -->
+        <div class="step" data-x="6000" data-y="3600">
+            <h2>📝 Summary</h2>
+            
+            <h3>What We Learned:</h3>
+            <ul>
+                <li>✅ GitOps principles and benefits</li>
+                <li>✅ Argo CD architecture and components</li>
+                <li>✅ Applications and AppProjects</li>
+                <li>✅ Sync strategies and drift detection</li>
+                <li>✅ Advanced patterns (App of Apps, promotion)</li>
+                <li>✅ Best practices and anti-patterns</li>
+            </ul>
+
+            <div class="success">
+                <strong>Next Steps:</strong> Time for hands-on labs! 🚀
+            </div>
+        </div>
+
+        <!-- Slide 25: Resources -->
+        <div class="step" data-x="7200" data-y="3600">
+            <h2>📚 Resources & References</h2>
+            
+            <h3>Official Documentation:</h3>
+            <ul>
+                <li>Argo CD Docs: <code>argo-cd.readthedocs.io</code></li>
+                <li>GitOps Principles: <code>opengitops.dev</code></li>
+            </ul>
+
+            <h3>Community:</h3>
+            <ul>
+                <li>Slack: <code>cloud-native.slack.com #argo-cd</code></li>
+                <li>GitHub: <code>github.com/argoproj/argo-cd</code></li>
+            </ul>
+
+            <h3>Books & Articles:</h3>
+            <ul>
+                <li>"GitOps and Kubernetes" by Manning</li>
+                <li>"GitOps: What You Need to Know Now" by Weaveworks</li>
+            </ul>
+
+            <div class="center" style="margin-top: 50px;">
+                <h1>Thank You! 🎉</h1>
+                <p>Let's get hands-on!</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="js/impress.js"></script>
+    <script>
+        // Initialize impress.js
+        var impressAPI = impress();
+        impressAPI.init();
+        
+        // Optional: Add keyboard shortcuts info
+        console.log("Use arrow keys or spacebar to navigate");
+        console.log("Press 'p' to see navigation help");
+    </script>
+</body>
+</html>
