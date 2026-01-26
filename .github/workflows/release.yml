@@ -18,52 +18,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          node-version: "20"
+          distribution: 'temurin'
+          java-version: '21'
 
-      - name: Install dependencies
+      - name: Install deck2pdf
         run: |
-          npm install -g http-server decktape
-
-          # Install Chromium dependencies for Ubuntu
-          sudo apt-get update
-          sudo apt-get install -y \
-            libnss3 \
-            libnspr4 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libdrm2 \
-            libxkbcommon0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libxrandr2 \
-            libgbm1 \
-            libpango-1.0-0 \
-            libcairo2 \
-            libasound2t64 || sudo apt-get install -y libasound2 || true
+          # Download latest deck2pdf release
+          DECK2PDF_VERSION=$(curl -s https://api.github.com/repos/melix/deck2pdf/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
+          curl -L "https://github.com/melix/deck2pdf/releases/download/${DECK2PDF_VERSION}/deck2pdf-${DECK2PDF_VERSION#v}.jar" -o deck2pdf.jar
 
       - name: Generate Argo CD Presentation PDF
         run: |
           cd presentation/argocd
-          http-server -p 8080 &
-          SERVER_PID=$!
-          sleep 5
-
-          decktape automatic \
-            --size 1920x1080 \
-            --load-pause 2000 \
-            --chrome-arg=--no-sandbox \
-            --chrome-arg=--disable-setuid-sandbox \
-            --chrome-arg=--disable-dev-shm-usage \
-            --chrome-arg=--disable-gpu \
-            http://localhost:8080/index.html \
+          
+          # Generate PDF using deck2pdf
+          java -jar ../../deck2pdf.jar \
+            --profile=revealjs \
+            index.html \
             argocd-presentation.pdf
 
-          kill $SERVER_PID
           mv argocd-presentation.pdf ../../argocd-presentation.pdf
 
       - name: Create workshop materials archive
