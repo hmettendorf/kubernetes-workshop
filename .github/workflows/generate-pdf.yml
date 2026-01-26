@@ -5,17 +5,12 @@ on:
     branches:
       - main
       - master
-    paths:
-      - 'presentation/**'
-  pull_request:
-    paths:
-      - 'presentation/**'
   workflow_dispatch:
 
 jobs:
   generate-pdf:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,14 +18,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: |
           npm install -g http-server
           # Install decktape for PDF generation
           npm install -g decktape
-          
+
           # Install Chromium dependencies for Ubuntu
           sudo apt-get update
           sudo apt-get install -y \
@@ -56,10 +51,10 @@ jobs:
           cd presentation/argocd
           http-server -p 8080 &
           SERVER_PID=$!
-          
+
           # Wait for server to start
           sleep 5
-          
+
           # Generate PDF using decktape with no-sandbox flags
           decktape automatic \
             --size 1920x1080 \
@@ -70,10 +65,10 @@ jobs:
             --chrome-arg=--disable-gpu \
             http://localhost:8080/index.html \
             argocd-presentation.pdf
-          
+
           # Stop the server
           kill $SERVER_PID
-          
+
           # Move PDF to root for artifact upload
           mv argocd-presentation.pdf ../../argocd-presentation.pdf
 
@@ -95,10 +90,10 @@ jobs:
           cp -r handson release-archive/
           cp README.md release-archive/
           cp ARGOCD_WORKSHOP_SUMMARY.md release-archive/
-          
+
           # Create tar.gz archive
           tar -czf workshop-materials.tar.gz release-archive/
-          
+
           # Create zip archive for Windows users
           zip -r workshop-materials.zip release-archive/
 
