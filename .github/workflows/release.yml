@@ -3,7 +3,7 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ permissions:
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,12 +21,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: |
           npm install -g http-server decktape
-          
+
           # Install Chromium dependencies for Ubuntu
           sudo apt-get update
           sudo apt-get install -y \
@@ -52,7 +52,7 @@ jobs:
           http-server -p 8080 &
           SERVER_PID=$!
           sleep 5
-          
+
           decktape automatic \
             --size 1920x1080 \
             --load-pause 2000 \
@@ -62,7 +62,7 @@ jobs:
             --chrome-arg=--disable-gpu \
             http://localhost:8080/index.html \
             argocd-presentation.pdf
-          
+
           kill $SERVER_PID
           mv argocd-presentation.pdf ../../argocd-presentation.pdf
 
@@ -70,14 +70,13 @@ jobs:
         run: |
           # Create comprehensive release package
           mkdir -p argocd-workshop-${GITHUB_REF_NAME}
-          
+
           # Copy all materials
           cp README.md argocd-workshop-${GITHUB_REF_NAME}/
-          cp ARGOCD_WORKSHOP_SUMMARY.md argocd-workshop-${GITHUB_REF_NAME}/
           cp argocd-presentation.pdf argocd-workshop-${GITHUB_REF_NAME}/
           cp -r presentation argocd-workshop-${GITHUB_REF_NAME}/
           cp -r handson argocd-workshop-${GITHUB_REF_NAME}/
-          
+
           # Create archives
           tar -czf argocd-workshop-${GITHUB_REF_NAME}.tar.gz argocd-workshop-${GITHUB_REF_NAME}/
           zip -r argocd-workshop-${GITHUB_REF_NAME}.zip argocd-workshop-${GITHUB_REF_NAME}/
@@ -96,23 +95,23 @@ jobs:
             # Extract notes for this version
             awk '/^## \['"${GITHUB_REF_NAME}"'\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > release-notes.md
           fi
-          
+
           # If no release notes found, create default ones
           if [ ! -s release-notes.md ]; then
             cat > release-notes.md << EOF
           ## Argo CD Workshop ${GITHUB_REF_NAME}
-          
+
           ### 📦 Release Contents
-          
+
           This release includes:
           - **Interactive Presentation** (HTML + PDF)
           - **5 Comprehensive Hands-On Labs**
           - **Example YAML Configurations**
           - **Quick Start Guide**
           - **Complete Workshop Materials**
-          
+
           ### 🎯 Workshop Overview
-          
+
           A complete 8-hour workshop on GitOps with Argo CD including:
           - GitOps principles and concepts
           - Argo CD installation and configuration
@@ -121,36 +120,36 @@ jobs:
           - Multi-tenancy with AppProjects
           - App of Apps pattern
           - Environment promotion strategies
-          
+
           ### 📚 What's Included
-          
+
           - **argocd-presentation.pdf** - Complete presentation in PDF format
           - **argocd-workshop-${GITHUB_REF_NAME}.tar.gz** - Full workshop package (Linux/Mac)
           - **argocd-workshop-${GITHUB_REF_NAME}.zip** - Full workshop package (Windows)
           - **checksums.txt** - SHA256 checksums for verification
-          
+
           ### 🚀 Quick Start
-          
+
           1. Download the archive for your platform
           2. Extract: \`tar -xzf argocd-workshop-${GITHUB_REF_NAME}.tar.gz\`
           3. Review the presentation: Open \`presentation/argocd/index.html\`
           4. Start labs: Follow \`handson/argocd/QUICK_START.md\`
-          
+
           ### 📖 Documentation
-          
+
           - Main README: Comprehensive workshop overview
           - Workshop Summary: Facilitator guide and tips
           - Lab READMEs: Step-by-step instructions for each lab
-          
+
           ### 🔧 Prerequisites
-          
+
           - Kubernetes cluster (local or cloud)
           - kubectl installed
           - helm v3+ installed
           - Basic Kubernetes knowledge
-          
+
           ### 🙏 Acknowledgments
-          
+
           Built with:
           - [Argo CD](https://argo-cd.readthedocs.io/)
           - [Impress.js](https://github.com/impress/impress.js)

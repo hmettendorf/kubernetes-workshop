@@ -89,7 +89,6 @@ jobs:
           cp -r presentation release-archive/
           cp -r handson release-archive/
           cp README.md release-archive/
-          cp ARGOCD_WORKSHOP_SUMMARY.md release-archive/
 
           # Create tar.gz archive
           tar -czf workshop-materials.tar.gz release-archive/
