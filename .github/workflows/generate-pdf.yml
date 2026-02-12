@@ -21,11 +21,15 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Install deck2pdf
+      - name: Build deck2pdf from source
         run: |
-          # Download latest deck2pdf release
-          DECK2PDF_VERSION=$(curl -s https://api.github.com/repos/melix/deck2pdf/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-          curl -L "https://github.com/melix/deck2pdf/releases/download/${DECK2PDF_VERSION}/deck2pdf-${DECK2PDF_VERSION#v}.jar" -o deck2pdf.jar
+          # Clone and build deck2pdf since binaries are not available
+          git clone --depth 1 --branch RELEASE_0_3_0 https://github.com/melix/deck2pdf.git deck2pdf-build
+          cd deck2pdf-build
+          ./gradlew jar
+          cp build/libs/deck2pdf-0.3.0.jar ../deck2pdf.jar
+          cd ..
+          rm -rf deck2pdf-build
 
       - name: Generate PDF from Argo CD presentation
         run: |
