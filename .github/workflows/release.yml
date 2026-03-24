@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install Puppeteer
         run: npm install puppeteer
@@ -40,6 +40,7 @@ jobs:
             });
             
             const page = await browser.newPage();
+            await page.setViewport({ width: 1920, height: 1080 });
             
             const htmlPath = 'file://' + path.resolve('presentation/argocd/index.html');
             console.log('Loading presentation from:', htmlPath);
@@ -50,27 +51,108 @@ jobs:
             });
             
             // Wait for impress.js to initialize
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 3000));
             
-            console.log('Generating PDF...');
-            await page.pdf({
+            // Get total number of slides
+            const slideCount = await page.evaluate(() => {
+              return document.querySelectorAll('.step').length;
+            });
+            
+            console.log(`Found ${slideCount} slides. Capturing each slide...`);
+            
+            const images = [];
+            
+            // Navigate through each slide and capture
+            for (let i = 0; i < slideCount; i++) {
+              console.log(`Capturing slide ${i + 1}/${slideCount}`);
+              
+              // Navigate to next slide (except first)
+              if (i > 0) {
+                await page.keyboard.press('ArrowRight');
+                await new Promise(resolve => setTimeout(resolve, 1500));
+              } else {
+                // Wait a bit for first slide
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+              
+              // Take screenshot of the slide
+              const screenshot = await page.screenshot({
+                type: 'png',
+                fullPage: false
+              });
+              
+              images.push(screenshot);
+            }
+            
+            await browser.close();
+            
+            console.log('Generating PDF from slides...');
+            
+            // Create a new browser instance to generate PDF from images
+            const pdfBrowser = await puppeteer.launch({
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            
+            const pdfPage = await pdfBrowser.newPage();
+            
+            // Create HTML with all images
+            const htmlContent = `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <style>
+                  body { margin: 0; padding: 0; }
+                  .slide { 
+                    width: 100vw; 
+                    height: 100vh; 
+                    page-break-after: always;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: white;
+                  }
+                  .slide img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                  }
+                  .slide:last-child { page-break-after: auto; }
+                </style>
+              </head>
+              <body>
+                ${images.map((_, idx) => `<div class="slide"><img src="data:image/png;base64,PLACEHOLDER_${idx}" /></div>`).join('')}
+              </body>
+              </html>
+            `;
+            
+            // Replace placeholders with actual base64 images
+            let finalHtml = htmlContent;
+            for (let i = 0; i < images.length; i++) {
+              const base64 = images[i].toString('base64');
+              finalHtml = finalHtml.replace(`PLACEHOLDER_${i}`, base64);
+            }
+            
+            await pdfPage.setContent(finalHtml, { waitUntil: 'networkidle0' });
+            
+            await pdfPage.pdf({
               path: 'argocd-presentation.pdf',
               format: 'A4',
               landscape: true,
               printBackground: true,
               margin: {
-                top: '10mm',
-                right: '10mm',
-                bottom: '10mm',
-                left: '10mm'
+                top: '0mm',
+                right: '0mm',
+                bottom: '0mm',
+                left: '0mm'
               }
             });
             
-            await browser.close();
-            console.log('PDF generated successfully');
+            await pdfBrowser.close();
+            console.log('PDF generated successfully with', images.length, 'slides');
           })();
           EOF
-          
+
           node generate-pdf.js
 
       - name: Create workshop materials archive
