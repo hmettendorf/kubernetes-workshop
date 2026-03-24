@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const { PDFDocument } = require('pdf-lib');
 
 (async () => {
   const browser = await puppeteer.launch({
@@ -29,11 +30,7 @@ const fs = require('fs');
   
   console.log(`Found ${slideCount} slides. Capturing each slide...`);
   
-  // Create temp directory for slides
-  const tempDir = 'temp-slides';
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir);
-  }
+  const screenshots = [];
   
   // Navigate through each slide and capture
   for (let i = 0; i < slideCount; i++) {
@@ -48,86 +45,56 @@ const fs = require('fs');
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
-    // Take screenshot of the slide
-    await page.screenshot({
-      path: `${tempDir}/slide-${String(i + 1).padStart(3, '0')}.png`,
+    // Take screenshot of the slide and store in memory
+    const screenshot = await page.screenshot({
       type: 'png',
       fullPage: false
     });
+    
+    screenshots.push(screenshot);
   }
   
   await browser.close();
   
-  console.log('Generating PDF from slides...');
+  console.log('Generating PDF from slides using pdf-lib...');
   
-  // Create a new browser instance to generate PDF from images
-  const pdfBrowser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+  // Create PDF document using pdf-lib
+  const pdfDoc = await PDFDocument.create();
   
-  const pdfPage = await pdfBrowser.newPage();
-  
-  // Create HTML with all image file references
-  const slideFiles = fs.readdirSync(tempDir).sort();
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { margin: 0; padding: 0; }
-        .slide { 
-          width: 100vw; 
-          height: 100vh; 
-          page-break-after: always;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: white;
-        }
-        .slide img {
-          max-width: 100%;
-          max-height: 100%;
-          object-fit: contain;
-        }
-        .slide:last-child { page-break-after: auto; }
-      </style>
-    </head>
-    <body>
-      ${slideFiles.map(file => {
-        const imgPath = path.resolve(tempDir, file);
-        return `<div class="slide"><img src="file://${imgPath}" /></div>`;
-      }).join('')}
-    </body>
-    </html>
-  `;
-  
-  await pdfPage.setContent(htmlContent, { 
-    waitUntil: 'networkidle0',
-    timeout: 60000 
-  });
-  
-  // Wait for images to load
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  await pdfPage.pdf({
-    path: 'argocd-presentation.pdf',
-    format: 'A4',
-    landscape: true,
-    printBackground: true,
-    margin: {
-      top: '0mm',
-      right: '0mm',
-      bottom: '0mm',
-      left: '0mm'
+  // Process screenshots in batches to avoid memory issues
+  const batchSize = 5;
+  for (let i = 0; i < screenshots.length; i += batchSize) {
+    const batch = screenshots.slice(i, Math.min(i + batchSize, screenshots.length));
+    console.log(`Processing slides ${i + 1}-${Math.min(i + batchSize, screenshots.length)}...`);
+    
+    for (const screenshot of batch) {
+      const pngImage = await pdfDoc.embedPng(screenshot);
+      const page = pdfDoc.addPage([842, 595]); // A4 landscape in points
+      
+      const { width, height } = pngImage.scale(1);
+      const pageWidth = page.getWidth();
+      const pageHeight = page.getHeight();
+      
+      // Calculate scaling to fit image on page while maintaining aspect ratio
+      const scale = Math.min(pageWidth / width, pageHeight / height);
+      const scaledWidth = width * scale;
+      const scaledHeight = height * scale;
+      
+      // Center the image
+      const x = (pageWidth - scaledWidth) / 2;
+      const y = (pageHeight - scaledHeight) / 2;
+      
+      page.drawImage(pngImage, {
+        x: x,
+        y: y,
+        width: scaledWidth,
+        height: scaledHeight,
+      });
     }
-  });
+  }
   
-  await pdfBrowser.close();
+  const pdfBytes = await pdfDoc.save();
+  fs.writeFileSync('argocd-presentation.pdf', pdfBytes);
   
-  // Cleanup temp files
-  slideFiles.forEach(file => fs.unlinkSync(path.join(tempDir, file)));
-  fs.rmdirSync(tempDir);
-  
-  console.log('PDF generated successfully with', slideFiles.length, 'slides');
+  console.log('PDF generated successfully with', screenshots.length, 'slides');
 })();
