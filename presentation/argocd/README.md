@@ -12,7 +12,7 @@ This is an interactive presentation about GitOps with Argo CD built using [impre
 
    ```bash
    # From this directory
-   cd /home/hauke/tmp/argocd-workshop/presentation/argocd
+   cd presentation/argocd
    
    # Open in browser
    open index.html              # macOS
@@ -32,7 +32,7 @@ For the best experience and proper JavaScript loading:
 
 ```bash
 # Make sure you're in the presentation/argocd directory
-cd /home/hauke/tmp/argocd-workshop/presentation/argocd
+cd presentation/argocd
 
 # Python 3
 python3 -m http.server 8000

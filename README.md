@@ -124,12 +124,6 @@ Led by Holger Tiemeyer
 - Blue/Green deployment strategy
 - Canary deployments with traffic splitting
 
-**Wrap-Up:**
-
-- GitOps best practices
-- Argo CD troubleshooting tips
-- Q&A
-
 ---
 
 ## 📅 Day 3 – Security & Observability (8h)
