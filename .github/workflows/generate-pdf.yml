@@ -15,34 +15,60 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          node-version: '20'
 
-      - name: Build deck2pdf from source
-        run: |
-          # Clone and build deck2pdf since binaries are not available
-          git clone --depth 1 --branch RELEASE_0_3_0 https://github.com/melix/deck2pdf.git deck2pdf-build
-          cd deck2pdf-build
-          ./gradlew jar
-          cp build/libs/deck2pdf-0.3.0.jar ../deck2pdf.jar
-          cd ..
-          rm -rf deck2pdf-build
+      - name: Install Puppeteer
+        run: npm install puppeteer
 
       - name: Generate PDF from Argo CD presentation
         run: |
-          cd presentation/argocd
-          
-          # Generate PDF using deck2pdf
-          java -jar ../../deck2pdf.jar \
-            --profile=revealjs \
-            index.html \
-            argocd-presentation.pdf
+          # Create a simple script to generate PDF
+          cat > generate-pdf.js << 'EOF'
+          const puppeteer = require('puppeteer');
+          const path = require('path');
 
-          # Move PDF to root for artifact upload
-          mv argocd-presentation.pdf ../../argocd-presentation.pdf
+          (async () => {
+            const browser = await puppeteer.launch({
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            
+            const page = await browser.newPage();
+            
+            const htmlPath = 'file://' + path.resolve('presentation/argocd/index.html');
+            console.log('Loading presentation from:', htmlPath);
+            
+            await page.goto(htmlPath, { 
+              waitUntil: 'networkidle0',
+              timeout: 30000
+            });
+            
+            // Wait for impress.js to initialize
+            await page.waitForTimeout(2000);
+            
+            console.log('Generating PDF...');
+            await page.pdf({
+              path: 'argocd-presentation.pdf',
+              format: 'A4',
+              landscape: true,
+              printBackground: true,
+              margin: {
+                top: '10mm',
+                right: '10mm',
+                bottom: '10mm',
+                left: '10mm'
+              }
+            });
+            
+            await browser.close();
+            console.log('PDF generated successfully');
+          })();
+          EOF
+          
+          node generate-pdf.js
 
       - name: Upload PDF as artifact
         uses: actions/upload-artifact@v4
