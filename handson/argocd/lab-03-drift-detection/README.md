@@ -2,23 +2,23 @@
 
 ## Overview
 
-Explore Argo CD's drift detection capabilities and automated reconciliation. Learn how Argo CD keeps your cluster in sync with Git.
+Explore Argo CD's drift detection capabilities and automated reconciliation using the microservices demo application. Learn how Argo CD keeps your cluster in sync with Git.
 
-**Duration:** 30 minutes
+**Duration:** 45 minutes
 
 **Learning Objectives:**
 - Understand drift and why it matters
 - Manually create drift by changing resources
 - Observe Argo CD's drift detection
 - Enable and test self-healing
-- Configure sync policies
+- Configure sync policies for different scenarios
 
 ---
 
 ## Prerequisites
 
 - Completed Lab 1 & 2
-- Guestbook application deployed (or create it again)
+- Microservices demo application deployed (or create it again)
 
 ---
 
@@ -30,38 +30,45 @@ Explore Argo CD's drift detection capabilities and automated reconciliation. Lea
 argocd app list
 ```
 
-If guestbook isn't deployed, create it:
+If microservices-demo isn't deployed, create it:
 
 ```bash
-argocd app create guestbook \
-  --repo https://github.com/argoproj/argocd-example-apps.git \
-  --path guestbook \
+argocd app create microservices-demo \
+  --repo https://github.com/GoogleCloudPlatform/microservices-demo.git \
+  --path release \
   --dest-server https://kubernetes.default.svc \
-  --dest-namespace default
+  --dest-namespace microservices-demo \
+  --sync-option CreateNamespace=true
 
-argocd app sync guestbook
+argocd app sync microservices-demo
 ```
 
 ### 1.2 Verify Healthy State
 
 ```bash
-argocd app get guestbook
+argocd app get microservices-demo
 ```
 
 Should show:
 - **STATUS: Synced**
 - **HEALTH: Healthy**
 
+Wait for all pods to be running:
+
+```bash
+kubectl get pods -n microservices-demo
+```
+
 ---
 
-## Step 2: Create Drift Manually
+## Step 2: Create Drift Manually (Scaling)
 
 ### 2.1 Check Current State
 
-View current replicas:
+View current replicas for the frontend service:
 
 ```bash
-kubectl get deployment guestbook-ui -n default
+kubectl get deployment frontend -n microservices-demo
 ```
 
 Expected: `REPLICAS: 1`
@@ -71,16 +78,17 @@ Expected: `REPLICAS: 1`
 Create drift by scaling directly with kubectl:
 
 ```bash
-kubectl scale deployment guestbook-ui --replicas=3 -n default
+kubectl scale deployment frontend --replicas=3 -n microservices-demo
 ```
 
 ### 2.3 Verify the Change
 
 ```bash
-kubectl get deployment guestbook-ui -n default
+kubectl get deployment frontend -n microservices-demo
+kubectl get pods -n microservices-demo -l app=frontend
 ```
 
-Now shows: `REPLICAS: 3`
+Now shows: `REPLICAS: 3` and you'll see 3 frontend pods running.
 
 ---
 
@@ -89,7 +97,7 @@ Now shows: `REPLICAS: 3`
 ### 3.1 Check Application Status (CLI)
 
 ```bash
-argocd app get guestbook
+argocd app get microservices-demo
 ```
 
 After a few seconds (Argo CD polls every 3 minutes by default), status will show:
@@ -99,13 +107,13 @@ After a few seconds (Argo CD polls every 3 minutes by default), status will show
 If it hasn't detected yet, force a refresh:
 
 ```bash
-argocd app get guestbook --refresh
+argocd app get microservices-demo --refresh
 ```
 
 ### 3.2 View Detailed Diff
 
 ```bash
-argocd app diff guestbook
+argocd app diff microservices-demo
 ```
 
 This shows the exact differences between Git and cluster:
@@ -120,12 +128,13 @@ This shows the exact differences between Git and cluster:
 ### 3.3 Observe in UI
 
 1. Open Argo CD UI
-2. Click on **guestbook** application
+2. Click on **microservices-demo** application
 3. Notice the **OutOfSync** badge
 4. Click **APP DIFF** button to see differences
+5. Click on the **frontend** deployment to see specific changes
 
 The UI highlights:
-- Resources that are out of sync
+- Resources that are out of sync (yellow indicator)
 - Specific field differences
 - Color coding (red = removed, green = added)
 
@@ -138,19 +147,19 @@ The UI highlights:
 Sync the application to restore Git state:
 
 ```bash
-argocd app sync guestbook
+argocd app sync microservices-demo
 ```
 
 ### 4.2 Verify Reconciliation
 
 ```bash
-kubectl get deployment guestbook-ui -n default
+kubectl get deployment frontend -n microservices-demo
 ```
 
 Replicas should be back to: `1`
 
 ```bash
-argocd app get guestbook
+argocd app get microservices-demo
 ```
 
 Status should show: **Synced** and **Healthy**
@@ -166,17 +175,17 @@ Self-healing automatically reverts manual changes.
 View current policy:
 
 ```bash
-argocd app get guestbook | grep -A 3 "Sync Policy"
+argocd app get microservices-demo | grep -A 3 "Sync Policy"
 ```
 
-Shows: `Sync Policy: <none>` (manual sync)
+Shows: Manual sync (no automated policy)
 
 ### 5.2 Enable Automated Sync with Self-Heal
 
 Update the application to enable self-healing:
 
 ```bash
-argocd app set guestbook \
+argocd app set microservices-demo \
   --sync-policy automated \
   --self-heal
 ```
@@ -184,7 +193,7 @@ argocd app set guestbook \
 ### 5.3 Verify Configuration
 
 ```bash
-argocd app get guestbook
+argocd app get microservices-demo
 ```
 
 Should show:
@@ -199,8 +208,10 @@ Sync Policy:     Automated
 
 ### 6.1 Create Drift Again
 
+Scale a different service this time:
+
 ```bash
-kubectl scale deployment guestbook-ui --replicas=5 -n default
+kubectl scale deployment recommendationservice --replicas=3 -n microservices-demo
 ```
 
 ### 6.2 Watch Auto-Reconciliation
@@ -208,65 +219,109 @@ kubectl scale deployment guestbook-ui --replicas=5 -n default
 Watch the deployment:
 
 ```bash
-kubectl get deployment guestbook-ui -n default --watch
+kubectl get deployment recommendationservice -n microservices-demo --watch
 ```
 
 Within seconds (usually 5-10s), you'll see replicas automatically change back to `1`.
 
 Press `Ctrl+C` to stop watching.
 
-### 6.3 Check Application Logs
+### 6.3 Check in UI
+
+1. Open the Argo CD UI
+2. Watch the **microservices-demo** application
+3. You might briefly see it go OutOfSync, then immediately Synced again
+4. Click on Activity tab to see the self-heal event
+
+### 6.4 Check Application Events
 
 ```bash
-argocd app logs guestbook --kind Deployment --name guestbook-ui
+argocd app get microservices-demo
 ```
 
-Shows reconciliation events.
+Look for recent sync events showing self-healing.
 
 ---
 
-## Step 7: Test Label Changes
+## Step 7: Test Configuration Changes
 
-### 7.1 Add a Label
+### 7.1 Modify Environment Variable
 
-Add a custom label to the deployment:
+Let's modify an environment variable on one of the services:
 
 ```bash
-kubectl label deployment guestbook-ui -n default custom-label=test
+kubectl set env deployment/frontend -n microservices-demo TEST_VAR=changed
 ```
 
 ### 7.2 Observe Self-Healing
 
-Check the label:
+Watch the deployment:
 
 ```bash
-kubectl get deployment guestbook-ui -n default --show-labels
+kubectl get deployment frontend -n microservices-demo -o yaml | grep -A 5 "env:"
 ```
 
-The custom label will be removed automatically by self-heal.
+Within seconds, the change will be reverted (the TEST_VAR removed).
 
-Verify:
+Check Argo CD:
+
 ```bash
-kubectl get deployment guestbook-ui -n default --show-labels
+argocd app get microservices-demo
 ```
+
+Should show Synced status again.
 
 ---
 
-## Step 8: Test Resource Deletion
+## Step 8: Test Configuration Changes
 
-### 8.1 Delete a Pod
+### 8.1 Modify Environment Variable
 
-```bash
-kubectl delete pod -l app=guestbook-ui -n default
-```
-
-### 8.2 Watch Recreation
-
-The deployment controller will recreate it immediately:
+Let's modify an environment variable on one of the services:
 
 ```bash
-kubectl get pods -l app=guestbook-ui -n default --watch
+kubectl set env deployment/frontend -n microservices-demo TEST_VAR=changed
 ```
+
+### 8.2 Observe Self-Healing
+
+Watch the deployment:
+
+```bash
+kubectl get deployment frontend -n microservices-demo -o yaml | grep -A 5 "env:"
+```
+
+Within seconds, the change will be reverted (the TEST_VAR removed).
+
+Check Argo CD:
+
+```bash
+argocd app get microservices-demo
+```
+
+Should show Synced status again.
+
+### 8.3 Service Modifications (Advanced)
+
+If you patched the frontend-external service NodePort earlier (in Lab 2, Step 5), that's also drift! Let's check:
+
+```bash
+# Check current service NodePort
+kubectl get svc frontend-external -n microservices-demo -o jsonpath='{.spec.ports[0].nodePort}'
+
+# Refresh Argo CD to detect drift
+argocd app get microservices-demo --refresh
+```
+
+**Important:** Service modifications are detected by Argo CD, but since we manually patched it (outside of Git), self-healing would revert it to a random NodePort. This demonstrates why GitOps requires all changes to be in Git!
+
+**To persist the NodePort change in a GitOps way, you would need to:**
+1. Fork the microservices-demo repository
+2. Modify the Helm chart or use Kustomize patches
+3. Point your Application to your forked repo
+4. Commit the NodePort configuration to Git
+
+For this workshop, we accept the random NodePort or use port-forwarding to avoid this complexity.
 
 ---
 
@@ -277,13 +332,13 @@ Prune automatically deletes resources removed from Git.
 ### 9.1 Enable Prune
 
 ```bash
-argocd app set guestbook --auto-prune
+argocd app set microservices-demo --auto-prune
 ```
 
 ### 9.2 Verify Configuration
 
 ```bash
-argocd app get guestbook
+argocd app get microservices-demo
 ```
 
 Should show:
@@ -293,49 +348,46 @@ Sync Policy:     Automated
   Self Heal:     true
 ```
 
-### 9.3 Test Prune (Simulation)
+### 9.3 Understanding Prune
 
 **What happens:** If you remove a resource from Git, Argo CD will delete it from the cluster.
 
 **Example scenario:**
-1. Fork the example repo
-2. Remove `service.yaml` from Git
+1. Fork the microservices-demo repository
+2. Remove a service definition from the manifests
 3. Commit and push
-4. Argo CD will delete the Service from the cluster
+4. Argo CD will delete that Service from the cluster automatically
+
+**Note:** For this workshop, we won't modify the upstream repo, but it's important to understand how prune works.
 
 ---
 
-## Step 10: Sync Windows
+## Step 10: Declarative Sync Policy
 
-Control when syncs can happen (e.g., maintenance windows).
+Let's update the application using a manifest instead of CLI commands.
 
-### 10.1 View Project Sync Windows
+### 10.1 Create Updated Application Manifest
 
-```bash
-argocd proj get default
-```
-
-Currently, no sync windows are configured.
-
-### 10.2 Create Application Manifest with Sync Window
-
-Create `guestbook-sync-window.yaml`:
+Create `microservices-demo-selfheal.yaml`:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: guestbook-scheduled
+  name: microservices-demo
   namespace: argocd
 spec:
   project: default
+  
   source:
-    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
     targetRevision: HEAD
-    path: guestbook
+    path: release
+  
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: microservices-demo
+  
   syncPolicy:
     automated:
       prune: true
@@ -350,94 +402,121 @@ spec:
         maxDuration: 3m
 ```
 
----
-
-## Step 11: Sync Options
-
-Explore additional sync options.
-
-### 11.1 Common Sync Options
-
-```yaml
-syncPolicy:
-  syncOptions:
-  - CreateNamespace=true       # Auto-create namespace if missing
-  - PrunePropagationPolicy=foreground  # How to delete resources
-  - PruneLast=true             # Prune resources after sync
-  - Validate=false             # Skip kubectl validation
-  - ApplyOutOfSyncOnly=true    # Only sync out-of-sync resources
-```
-
-### 11.2 Apply Sync Options
+### 10.2 Apply the Manifest
 
 ```bash
-argocd app set guestbook --sync-option CreateNamespace=true
+kubectl apply -f microservices-demo-selfheal.yaml
 ```
+
+This is the GitOps way - everything defined declaratively!
 
 ---
 
-## Step 12: Ignore Differences
+## Step 11: Ignore Differences
 
-Sometimes you want to ignore certain fields (e.g., HPA-managed replicas).
+Sometimes you want to ignore certain fields (e.g., fields managed by other controllers).
 
-### 12.1 Configure Ignore Rules
+### 11.1 Understanding Ignore Rules
 
-Edit application manifest to add:
+Common use cases:
+- Ignore replica counts when using HPA (HorizontalPodAutoscaler)
+- Ignore status fields
+- Ignore annotations added by other tools
+
+### 11.2 Configure Ignore Rules
+
+Create `microservices-demo-ignore.yaml`:
 
 ```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: microservices-demo
+  namespace: argocd
 spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
+    targetRevision: HEAD
+    path: release
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: microservices-demo
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+  
+  # Ignore replica count on loadgenerator (example)
   ignoreDifferences:
   - group: apps
     kind: Deployment
+    name: loadgenerator
     jsonPointers:
     - /spec/replicas
 ```
 
-This tells Argo CD to ignore replica count differences.
-
-### 12.2 Apply Configuration
+### 11.3 Test Ignore Rules
 
 ```bash
-kubectl apply -f guestbook-app.yaml
+kubectl apply -f microservices-demo-ignore.yaml
+
+# Scale loadgenerator
+kubectl scale deployment loadgenerator --replicas=3 -n microservices-demo
+
+# Check status
+argocd app get microservices-demo
 ```
 
-Now manual scaling won't trigger OutOfSync status!
+The app should remain **Synced** because we're ignoring replica changes on loadgenerator!
 
 ---
 
 ## Exercises
 
-### Exercise 1: Test Self-Heal with ConfigMap
+### Exercise 1: Test Self-Heal with Multiple Services
 
-1. Create a ConfigMap in the namespace
-2. Watch Argo CD remove it (if not in Git)
+Scale multiple services simultaneously and watch them all self-heal:
 
 ```bash
-kubectl create configmap test --from-literal=key=value -n default
-kubectl get configmap test -n default --watch
+kubectl scale deployment frontend --replicas=2 -n microservices-demo
+kubectl scale deployment cartservice --replicas=2 -n microservices-demo
+kubectl scale deployment productcatalogservice --replicas=2 -n microservices-demo
+
+# Watch them all revert
+watch kubectl get deployments -n microservices-demo
 ```
 
 ### Exercise 2: Disable Self-Heal Temporarily
 
 ```bash
-argocd app set guestbook --self-heal=false
-kubectl scale deployment guestbook-ui --replicas=3 -n default
+argocd app set microservices-demo --self-heal=false
+kubectl scale deployment frontend --replicas=3 -n microservices-demo
 # Observe: Drift detected but NOT auto-corrected
+
+# Re-enable
+argocd app set microservices-demo --self-heal=true
 ```
 
-### Exercise 3: Configure Sync Retry
+### Exercise 3: Explore Sync Options
 
-Add retry logic for failed syncs:
+Add different sync options:
 
 ```yaml
 syncPolicy:
-  retry:
-    limit: 5
-    backoff:
-      duration: 5s
-      factor: 2
-      maxDuration: 3m
+  syncOptions:
+  - CreateNamespace=true
+  - PrunePropagationPolicy=foreground
+  - PruneLast=true
+  - ApplyOutOfSyncOnly=true
 ```
+
+Apply and observe behavior.
 
 ---
 
@@ -447,8 +526,9 @@ syncPolicy:
 - [ ] Argo CD detects drift
 - [ ] Can view diff in UI and CLI
 - [ ] Self-healing automatically corrects drift
-- [ ] Prune deletes resources removed from Git
-- [ ] Understand ignore rules
+- [ ] Understand prune behavior
+- [ ] Can configure ignore rules
+- [ ] Understand sync retry logic
 
 ---
 
@@ -458,7 +538,7 @@ syncPolicy:
 
 **Solution:** Check sync policy is enabled:
 ```bash
-argocd app get guestbook | grep "Self Heal"
+argocd app get microservices-demo | grep "Self Heal"
 ```
 
 Should show: `Self Heal: true`
@@ -482,17 +562,29 @@ data:
 
 **Solution:** Ensure prune is enabled:
 ```bash
-argocd app get guestbook | grep Prune
+argocd app get microservices-demo | grep Prune
 ```
+
+Should show: `Prune: true`
+
+### Problem: Application shows Degraded health
+
+**Solution:** Check individual pod status:
+```bash
+kubectl get pods -n microservices-demo
+kubectl describe pod <failing-pod> -n microservices-demo
+```
+
+May need to increase Rancher Desktop resources.
 
 ---
 
 ## Clean Up
 
-Keep the guestbook app for the next lab, or delete:
+Keep the microservices-demo app for the next lab, or delete:
 
 ```bash
-argocd app delete guestbook
+argocd app delete microservices-demo
 ```
 
 ---
@@ -507,8 +599,10 @@ Proceed to:
 ## Key Takeaways
 
 ✅ Drift detection ensures cluster matches Git state  
-✅ Self-healing automatically reverts manual changes  
+✅ Self-healing automatically reverts manual changes within seconds  
 ✅ Prune removes resources deleted from Git  
 ✅ Sync options provide fine-grained control  
-✅ Ignore rules handle special cases (HPA, etc.)  
-✅ GitOps ensures declarative, auditable deployments
+✅ Ignore rules handle special cases (HPA, external controllers)  
+✅ Sync retry provides resilience for transient failures  
+✅ Declarative sync policies enable complete GitOps automation  
+✅ Multi-service applications demonstrate the power of GitOps at scale

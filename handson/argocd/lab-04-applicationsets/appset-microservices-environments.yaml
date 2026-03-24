@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: microservices-environments
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      - environment: dev
+        namespace: shop-dev
+        replicas: "1"
+      - environment: staging
+        namespace: shop-staging
+        replicas: "1"
+      - environment: prod
+        namespace: shop-prod
+        replicas: "2"
+  
+  template:
+    metadata:
+      name: 'shop-{{environment}}'
+      labels:
+        environment: '{{environment}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
+        targetRevision: HEAD
+        path: helm-chart
+        helm:
+          values: |
+            networkPolicies:
+              create: false
+            sidecars:
+              create: false
+            frontend:
+              externalService: true
+              replicas: {{replicas}}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true

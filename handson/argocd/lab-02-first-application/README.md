@@ -1,17 +1,19 @@
-# Lab 2: Your First Application
+# Lab 2: Your First Application - Microservices Demo
 
 ## Overview
 
-Deploy your first application using Argo CD, connecting to a Git repository and managing the application lifecycle.
+Deploy Google Cloud's microservices demo application using Argo CD. This is a realistic example of a multi-service application with frontend, backend services, and dependencies.
 
-**Duration:** 45 minutes
+**Duration:** 75 minutes
 
 **Learning Objectives:**
 - Create an Argo CD Application resource
 - Connect to Git repositories
+- Deploy a complex microservices application
 - Perform manual sync operations
 - Monitor application health and sync status
 - Use the Argo CD UI and CLI
+- Understand multi-service deployments
 
 ---
 
@@ -20,126 +22,110 @@ Deploy your first application using Argo CD, connecting to a Git repository and 
 - Completed Lab 1 (Argo CD installed)
 - Argo CD CLI logged in
 - Access to the Argo CD UI
+- Rancher Desktop with k3s running
 
 ---
 
-## Step 1: Prepare Demo Application
+## About the Microservices Demo
 
-We'll deploy a simple guestbook application. First, let's examine what we'll be deploying.
+The **Google Cloud microservices demo** (formerly known as "Online Boutique") is a cloud-native microservices demo application consisting of 11 microservices:
 
-### 1.1 Review Application Manifests
+- **Frontend** - Exposes an HTTP server to serve the website
+- **Cart Service** - Stores items in the user's shopping cart
+- **Product Catalog Service** - Provides the list of products
+- **Currency Service** - Converts currencies
+- **Payment Service** - Charges the user's credit card
+- **Shipping Service** - Gives shipping cost estimates
+- **Email Service** - Sends order confirmation emails
+- **Checkout Service** - Retrieves cart, prepares order, orchestrates payment and shipping
+- **Recommendation Service** - Recommends other products
+- **Ad Service** - Provides advertisement
+- **Load Generator** - Continuously sends requests to the frontend
 
-The demo application consists of:
-- **Deployment** - Frontend application
-- **Service** - Expose the frontend
-
-Create a directory for our manifests:
-
-```bash
-mkdir -p ~/argocd-demo-app
-cd ~/argocd-demo-app
-```
-
-### 1.2 Create Application Manifests
-
-Create `deployment.yaml`:
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: guestbook-ui
-  labels:
-    app: guestbook-ui
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: guestbook-ui
-  template:
-    metadata:
-      labels:
-        app: guestbook-ui
-    spec:
-      containers:
-      - name: guestbook-ui
-        image: gcr.io/heptio-images/ks-guestbook-demo:0.2
-        ports:
-        - containerPort: 80
-```
-
-Create `service.yaml`:
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: guestbook-ui
-  labels:
-    app: guestbook-ui
-spec:
-  type: ClusterIP
-  ports:
-  - port: 80
-    targetPort: 80
-  selector:
-    app: guestbook-ui
-```
-
-### 1.3 Initialize Git Repository (Simulation)
-
-For this lab, we'll use Argo CD's example repository. In production, you'd push these to your own Git repo.
-
-We'll use: `https://github.com/argoproj/argocd-example-apps`
+Repository: https://github.com/GoogleCloudPlatform/microservices-demo
 
 ---
 
-## Step 2: Create Application via CLI
+## Step 1: Add Application to Your Git Repository
 
-### 2.1 Create the Application
+### 1.1 Copy Application Manifest to Your Branch
+
+Navigate to your seeds repository and copy the lab manifest:
 
 ```bash
-argocd app create guestbook \
-  --repo https://github.com/argoproj/argocd-example-apps.git \
-  --path guestbook \
-  --dest-server https://kubernetes.default.svc \
-  --dest-namespace default
+# Go to your seeds repository
+cd ~/kubernetes-workshop-seeds
+
+# Verify you're on your branch
+git branch
+
+# Copy the application manifest
+cp ~/kubernetes-workshop/handson/argocd/lab-02-first-application/microservices-demo-app.yaml .
 ```
 
-**Command breakdown:**
-- `guestbook` - Application name
-- `--repo` - Git repository URL
-- `--path` - Path within the repo containing manifests
-- `--dest-server` - Target Kubernetes cluster
-- `--dest-namespace` - Target namespace
+**Note:** Since each participant has their own Kubernetes cluster, there's no need to customize names or namespaces. The default values will work fine!
 
-### 2.2 Verify Application Created
+### 1.2 Review the Manifest
+
+Let's quickly review what we're deploying:
 
 ```bash
+cat microservices-demo-app.yaml
+```
+
+The Application manifest tells ArgoCD:
+- **Where** to find the source (GitHub repository with Helm chart)
+- **What** namespace to deploy to
+- **How** to sync (automatic or manual)
+
+### 1.3 Commit and Push to Git
+
+```bash
+# Add the file
+git add microservices-demo-app.yaml
+
+# Commit with a meaningful message
+git commit -m "Lab 2: Add microservices demo application"
+
+# Push to your branch
+git push
+```
+
+**This is GitOps!** Your Git repository is now the source of truth for this application.
+
+---
+
+## Step 2: Deploy Application with Argo CD
+
+### 2.1 Apply the Application Resource
+
+Now tell Argo CD to manage this application:
+
+```bash
+# Apply the Application resource to the cluster
+kubectl apply -f microservices-demo-app.yaml
+```
+
+### 2.2 View Application Status
+
+```bash
+# View in CLI
 argocd app list
+
+# Get detailed info
+argocd app get microservices-demo
 ```
 
 Output should show:
 ```
-NAME       CLUSTER                         NAMESPACE  PROJECT  STATUS     HEALTH   SYNCPOLICY  CONDITIONS
-guestbook  https://kubernetes.default.svc  default    default  OutOfSync  Missing  <none>      <none>
+NAME                 CLUSTER                         NAMESPACE          PROJECT  STATUS     HEALTH   SYNCPOLICY  CONDITIONS
+microservices-demo   https://kubernetes.default.svc  microservices-demo default  OutOfSync  Missing  <none>      <none>
 ```
 
 Notice:
 - **STATUS: OutOfSync** - Git state differs from cluster state
 - **HEALTH: Missing** - Resources don't exist in cluster yet
-
-### 2.3 View Application Details
-
-```bash
-argocd app get guestbook
-```
-
-This shows:
-- Source (Git repo and path)
-- Destination (cluster and namespace)
-- Resources to be created
-- Sync status
+- **No syncPolicy** - Manual sync required
 
 ---
 
@@ -147,39 +133,61 @@ This shows:
 
 ### 3.1 Manual Sync via CLI
 
-Sync the application to deploy resources:
+Sync the application to deploy all microservices:
 
 ```bash
-argocd app sync guestbook
+argocd app sync microservices-demo
 ```
 
 Watch the sync progress. You'll see:
-- Resources being created
+- Multiple resources being created
+- Deployments rolling out
+- Services being exposed
 - Health status changing from Missing → Progressing → Healthy
 
-### 3.2 Verify Deployment
+**Note:** This may take 2-5 minutes as all container images are pulled.
+
+### 3.2 Monitor Deployment Progress
+
+Watch the deployment in real-time:
+
+```bash
+# Watch pods being created
+kubectl get pods -n microservices-demo -w
+
+# In another terminal, check deployment status
+kubectl get deployments -n microservices-demo
+```
+
+### 3.3 Verify Deployment
 
 Check the application status:
 
 ```bash
-argocd app get guestbook
+argocd app get microservices-demo
 ```
 
-Now you should see:
+You should eventually see:
 - **STATUS: Synced**
-- **HEALTH: Healthy**
+- **HEALTH: Healthy** (once all pods are running)
 
-Verify resources in Kubernetes:
+Verify all resources in Kubernetes:
 
 ```bash
-kubectl get all -n default -l app=guestbook-ui
+# View all resources
+kubectl get all -n microservices-demo
+
+# Check individual deployments
+kubectl get deployments -n microservices-demo
+
+# Check services
+kubectl get services -n microservices-demo
+
+# Verify all pods are running
+kubectl get pods -n microservices-demo
 ```
 
-You should see:
-- Deployment
-- ReplicaSet
-- Pod (Running)
-- Service
+You should see 11 deployments and their corresponding pods.
 
 ---
 
@@ -188,216 +196,283 @@ You should see:
 ### 4.1 View Application in UI
 
 1. Open the Argo CD UI: `https://localhost:8080`
-2. Click on the **guestbook** application
+2. Click on the **microservices-demo** application
 
 ### 4.2 Explore Application View
 
 The UI shows:
 - **Top bar** - Sync status, health, repo info
-- **Graph view** - Visual representation of resources
-- **Resource tree** - Hierarchical view of all resources
+- **Graph view** - Visual representation of all microservices
+- **Resource tree** - Hierarchical view showing all deployments, services, pods
 - **Details panel** - Resource-specific information
+
+You'll see a complex graph with all 11 microservices and their relationships!
 
 ### 4.3 Navigate the Resource Tree
 
 Click on different resources to see:
-- YAML definitions
-- Events
-- Logs (for Pods)
-- Diffs (when out of sync)
+- YAML definitions for each service
+- Events for deployments
+- Logs for pods
+- Service endpoints
+- Resource dependencies
+
+Try exploring:
+- **frontend** deployment
+- **productcatalog** service
+- Any pod to view logs
 
 ---
 
-## Step 5: Make Changes in Git
+## Step 5: Access the Application
 
-Let's simulate a configuration change.
+### 5.1 Check Frontend Service
 
-### 5.1 View Current Replicas
+The frontend service is created with a LoadBalancer type:
 
 ```bash
-kubectl get deployment guestbook-ui -n default
+kubectl get service frontend-external -n microservices-demo
 ```
 
-Current replicas: 1
+On k3s (Rancher Desktop), the LoadBalancer will get an external IP automatically via the built-in ServiceLB.
 
-### 5.2 Understanding Application Updates
+### 5.2 Access via Port-Forward (Recommended)
 
-In a real scenario, you would:
-1. Fork the repository
-2. Modify `deployment.yaml` (e.g., change replicas to 2)
-3. Commit and push changes
-4. Argo CD detects changes automatically (or manual sync)
+The most reliable way to access the application on Rancher Desktop is via port-forwarding:
 
-For this lab, we'll demonstrate the sync process without forking.
+```bash
+kubectl port-forward -n microservices-demo svc/frontend-external 8080:80
+```
+
+Keep this terminal open. The port-forward will run until you stop it (Ctrl+C).
+
+### 5.3 Open in Browser
+
+Open your browser to: `http://localhost:8080`
+
+You should see the **Online Boutique** web application with:
+- Product catalog
+- Shopping cart functionality
+- Checkout process
+- Currency selection
+
+**Alternative - NodePort Access:**
+
+If you prefer to use NodePort, the LoadBalancer service automatically gets a NodePort assigned:
+
+```bash
+# Find the NodePort
+kubectl get svc frontend-external -n microservices-demo -o jsonpath='{.spec.ports[0].nodePort}'
+```
+
+Then access via: `http://localhost:<nodeport>`
+
+**Note:** With Rancher Desktop's k3s, port-forwarding is the most reliable method for local access.
+
+**Alternative - Port Forward Method:**
+
+If you prefer using port forwarding instead of NodePort:
+
+```bash
+kubectl port-forward -n microservices-demo svc/frontend-external 8081:80
+```
+
+Then access at: `http://localhost:8081`
+
+**Tip:** Leave port-forward running in a separate terminal while you explore other steps.
 
 ---
 
-## Step 6: Create Application via UI
+## Step 6: Explore Application Behavior
 
-Let's create another application using the UI.
+### 6.1 View Service Communication
 
-### 6.1 Create New Application
+Check logs to see inter-service communication:
 
-1. Click **+ NEW APP** button
-2. Fill in the form:
-   - **Application Name:** `guestbook-ui`
-   - **Project:** `default`
-   - **Sync Policy:** `Manual`
-   - **Repository URL:** `https://github.com/argoproj/argocd-example-apps.git`
-   - **Revision:** `HEAD`
-   - **Path:** `helm-guestbook`
-   - **Cluster URL:** `https://kubernetes.default.svc`
-   - **Namespace:** `guestbook`
+```bash
+# Frontend logs
+kubectl logs -n microservices-demo -l app=frontend --tail=50
 
-3. Click **CREATE**
+# Recommendation service logs
+kubectl logs -n microservices-demo -l app=recommendationservice --tail=50
+```
 
-### 6.2 Sync via UI
+### 6.2 View Load Generator
 
-1. Click the **SYNC** button
-2. In the sync panel, review resources to be created
-3. Click **SYNCHRONIZE**
+The load generator continuously hits the frontend:
 
-Watch the sync progress in the UI.
+```bash
+kubectl logs -n microservices-demo -l app=loadgenerator --tail=20 -f
+```
+
+You'll see simulated user traffic!
 
 ---
 
-## Step 7: Explore Application Resources
+## Step 7: Make Changes and Observe
 
-### 7.1 View Pod Logs
+### 7.1 Scale a Service
 
-**Via CLI:**
-```bash
-argocd app logs guestbook
-```
-
-**Via UI:**
-1. Click on the Pod resource
-2. Select the **LOGS** tab
-
-### 7.2 View Resource Details
-
-**Via CLI:**
-```bash
-# Get specific resource
-kubectl get deployment guestbook-ui -n default -o yaml
-
-# View events
-kubectl get events -n default --sort-by='.lastTimestamp'
-```
-
-**Via UI:**
-- Click any resource in the tree
-- View **SUMMARY**, **EVENTS**, **MANIFEST** tabs
-
-### 7.3 View Application History
+Let's scale the frontend deployment:
 
 ```bash
-argocd app history guestbook
+# Scale frontend to 3 replicas
+kubectl scale deployment frontend -n microservices-demo --replicas=3
 ```
 
-Shows:
-- Revision number
-- Deployed at timestamp
-- Git commit SHA
+**Note:** If you patched the service NodePort in Step 5, that patch also created drift! You can check:
+
+```bash
+# Check if application shows OutOfSync
+argocd app get microservices-demo
+```
+
+The service patch won't be detected unless you refresh the application or wait for the reconciliation cycle.
+
+### 7.2 Check Drift in Argo CD
+
+View the application in Argo CD:
+
+```bash
+argocd app get microservices-demo
+```
+
+Notice:
+- **STATUS: OutOfSync** - Because we manually changed replicas
+- Argo CD detected the drift!
+
+### 7.3 View the Diff
+
+See exactly what changed:
+
+```bash
+argocd app diff microservices-demo
+```
+
+**In the UI:**
+1. The application shows "OutOfSync"
+2. Click on the frontend deployment
+3. View the diff showing the replica change
+
+### 7.4 Sync to Revert
+
+Since Git is the source of truth, sync to revert our manual change:
+
+```bash
+argocd app sync microservices-demo
+```
+
+The frontend will scale back to 1 replica (as defined in Git).
 
 ---
 
-## Step 8: Application Refresh and Hard Refresh
+## Step 8: Create Application Declaratively
 
-### 8.1 Refresh Application
+The GitOps way: define the Application as YAML.
 
-Refresh fetches latest state from Git:
-
-```bash
-argocd app get guestbook --refresh
-```
-
-This compares Git with cluster without making changes.
-
-### 8.2 Hard Refresh
-
-Hard refresh also clears the cache:
+### 8.1 Delete Current Application
 
 ```bash
-argocd app get guestbook --hard-refresh
-```
-
----
-
-## Step 9: Delete Application Resources
-
-### 9.1 Delete Application (Cascade)
-
-Delete the application and all its resources:
-
-```bash
-argocd app delete guestbook
+argocd app delete microservices-demo
 ```
 
 Confirm with `y`.
 
-This deletes:
-- The Application CR in Argo CD
-- All Kubernetes resources deployed by the app
+### 8.2 Create Application Manifest
 
-### 9.2 Delete Application (Non-Cascade)
-
-To delete only the Argo CD Application (keeping resources in cluster):
-
-```bash
-argocd app delete guestbook --cascade=false
-```
-
----
-
-## Step 10: Create Application Declaratively
-
-The GitOps way: define Application as YAML.
-
-### 10.1 Create Application Manifest
-
-Create `guestbook-app.yaml`:
+Create `microservices-demo-app.yaml`:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: guestbook
+  name: microservices-demo
   namespace: argocd
 spec:
   project: default
+  
   source:
-    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
     targetRevision: HEAD
-    path: guestbook
+    path: helm-chart
+    helm:
+      values: |
+        serviceAccounts:
+          create: true
+        networkPolicies:
+          create: false
+        sidecars:
+          create: false
+        frontend:
+          externalService: true
+  
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: microservices-demo
+  
   syncPolicy:
     automated:
       prune: false
       selfHeal: false
+    syncOptions:
+    - CreateNamespace=true
 ```
 
-### 10.2 Apply the Application
+**Key changes from previous version:**
+- Using `helm-chart` path instead of `release`
+- Added `helm.values` to disable Istio features
+- Disables NetworkPolicies and sidecars (not needed without service mesh)
+- Enables external service (LoadBalancer type)
+
+**Note:** The LoadBalancer service will get a random NodePort. After deployment, you can patch it to use a specific port (see Step 5) or use port-forwarding for access.
+
+### 8.3 Apply the Application
 
 ```bash
-kubectl apply -f guestbook-app.yaml
+kubectl apply -f microservices-demo-app.yaml
 ```
 
-### 10.3 Verify Creation
+### 8.4 Verify Creation
 
 ```bash
 argocd app list
 kubectl get applications -n argocd
 ```
 
-Both commands should show the guestbook application.
-
-### 10.4 Sync the Application
+### 8.5 Sync the Application
 
 ```bash
-argocd app sync guestbook
+argocd app sync microservices-demo
+```
+
+---
+
+## Step 9: Understand the Application Structure
+
+### 9.1 Examine Deployed Resources
+
+```bash
+# Count resources
+kubectl get all -n microservices-demo | wc -l
+
+# View deployments with images
+kubectl get deployments -n microservices-demo -o wide
+
+# View services and their types
+kubectl get services -n microservices-demo
+```
+
+### 9.2 Understand Service Architecture
+
+The services communicate using Kubernetes DNS:
+- `frontend` calls `productcatalogservice`
+- `frontend` calls `currencyservice`
+- `checkoutservice` orchestrates multiple backend services
+
+View environment variables showing service dependencies:
+
+```bash
+kubectl describe deployment frontend -n microservices-demo | grep -A 20 "Environment:"
 ```
 
 ---
@@ -406,93 +481,146 @@ argocd app sync guestbook
 
 Try these challenges:
 
-### Exercise 1: Change Sync Policy
-Modify the application to use automated sync:
+### Exercise 1: Enable Auto-Sync
+
+Modify the application to use automated sync with self-healing:
 
 ```yaml
 syncPolicy:
   automated:
     prune: true
     selfHeal: true
+  syncOptions:
+  - CreateNamespace=true
 ```
 
-Apply changes:
+Apply and test by manually scaling a deployment.
+
+### Exercise 2: View Application Logs
+
+Use Argo CD CLI to view logs from different services:
+
 ```bash
-kubectl apply -f guestbook-app.yaml
+argocd app logs microservices-demo --kind Deployment --name frontend
+argocd app logs microservices-demo --kind Deployment --name cartservice
 ```
 
-### Exercise 2: Deploy Another Application
-Create a new application using the `helm-guestbook` path.
+### Exercise 3: Explore Resource Details
 
-### Exercise 3: Explore Different Paths
-Try deploying applications from different paths in the example repo:
-- `kustomize-guestbook`
-- `helm-guestbook`
-- `ksonnet-guestbook`
+In the UI, explore:
+- Pod resource usage
+- Service endpoints
+- ConfigMaps (if any)
+- Deployment strategies
+
+### Exercise 4: Simulate Service Failure
+
+Delete a pod and watch Kubernetes and Argo CD recover it:
+
+```bash
+kubectl delete pod -n microservices-demo -l app=frontend
+```
+
+Watch in the UI how it's recreated.
 
 ---
 
 ## Verification Checklist
 
 - [ ] Application created successfully
+- [ ] All 11 microservices deployed
 - [ ] Application synced and healthy
-- [ ] Resources deployed to Kubernetes
-- [ ] Can view application in UI
-- [ ] Can view logs and events
-- [ ] Understand sync vs refresh
+- [ ] Can access the web UI via port-forward
+- [ ] Can view all services in Argo CD UI
+- [ ] Can view logs for individual services
+- [ ] Understand drift detection
 - [ ] Created application declaratively
+- [ ] Explored service dependencies
 
 ---
 
 ## Troubleshooting
 
-### Problem: Application stuck in Progressing
+### Problem: Pods stuck in Pending state
 
-**Solution:** Check pod status:
+**Solution:** Check resources:
 ```bash
-kubectl get pods -n default
-kubectl describe pod <pod-name> -n default
+kubectl describe pod <pod-name> -n microservices-demo
 ```
 
-### Problem: Sync fails with permission error
+May need to increase Rancher Desktop memory allocation.
 
-**Solution:** Check namespace exists:
+### Problem: Images not pulling
+
+**Solution:** Check image pull status:
 ```bash
-kubectl create namespace default  # if it doesn't exist
+kubectl get pods -n microservices-demo
+kubectl describe pod <pod-name> -n microservices-demo | grep -A 10 Events
 ```
 
-### Problem: Can't find resources in UI
+### Problem: Frontend not accessible
 
-**Solution:** Click the refresh button or:
+**Solution:** Verify service and port-forward:
 ```bash
-argocd app get guestbook --refresh
+kubectl get svc frontend-external -n microservices-demo
+# Ensure port-forward is running on correct port
+kubectl port-forward -n microservices-demo svc/frontend-external 8081:80
+```
+
+### Problem: Application OutOfSync
+
+**Solution:** Refresh and check differences:
+```bash
+argocd app get microservices-demo --refresh
+argocd app diff microservices-demo
 ```
 
 ---
 
 ## Clean Up
 
-Remove the guestbook application:
+### Option 1: Keep for Next Lab
+
+Keep the application running for Lab 3 (Drift Detection).
+
+### Option 2: Delete Application
 
 ```bash
-argocd app delete guestbook
+argocd app delete microservices-demo
 ```
 
-Or keep it for the next lab!
+This will remove all deployed resources.
+
+### Option 3: Delete Only App Resources
+
+```bash
+# Delete namespace and all resources
+kubectl delete namespace microservices-demo
+```
 
 ---
 
 ## What's Next?
 
 Proceed to:
-- **[Lab 3: Drift Detection & Self-Healing](../lab-03-drift-detection/README.md)**
+- **[Lab 3: Drift Detection & Self-Healing](../lab-03-drift-detection/README.md)** - We'll use this same application to experiment with drift detection and self-healing!
 
 ---
 
 ## Key Takeaways
 
-✅ Applications are the core resource in Argo CD  
+✅ Argo CD can manage complex multi-service applications  
 ✅ Applications connect Git repos to Kubernetes clusters  
-✅ Sync operations deploy changes from Git to cluster  
-✅ Both CLI and UI provide full management capabilities  
-✅ Declarative application definitions enable GitOps
+✅ Sync operations deploy complete application stacks from Git  
+✅ Both CLI and UI provide comprehensive visibility  
+✅ The UI visual graph helps understand service dependencies  
+✅ Drift detection works across all application resources  
+✅ Declarative application definitions enable complete GitOps
+
+---
+
+## Additional Resources
+
+- [Microservices Demo GitHub](https://github.com/GoogleCloudPlatform/microservices-demo)
+- [Application Architecture Diagram](https://github.com/GoogleCloudPlatform/microservices-demo#architecture)
+- [Service Details](https://github.com/GoogleCloudPlatform/microservices-demo#service-architecture)

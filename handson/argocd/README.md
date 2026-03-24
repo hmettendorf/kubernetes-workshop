@@ -12,19 +12,33 @@ Each lab is self-contained with:
 ## Prerequisites
 
 Before starting these labs, ensure you have:
-- Access to a Kubernetes cluster (local or remote)
+- Rancher Desktop with k3s installed (see Lab Environment below)
 - `kubectl` installed and configured
-- `helm` v3+ installed
+- `argocd` CLI installed
 - Git installed
+- SSH key generated and added to GitHub deploy keys
 - Basic understanding of Kubernetes concepts
+
+## Workshop Schedule (Day 2)
+
+**Duration:** 9:00 - 14:30 (with 1 hour lunch break)
+
+- **9:00 - 10:00** - Lab 1: Installation & Setup
+- **10:00 - 11:15** - Lab 2: Your First Application (Microservices Demo)
+- **11:15 - 12:00** - Lab 3: Drift Detection & Self-Healing
+- **12:00 - 13:00** - **Lunch Break**
+- **13:00 - 14:00** - Lab 4: ApplicationSets
+- **14:00 - 14:30** - Lab 5: App of Apps Pattern
+
+---
 
 ## Labs Overview
 
-### Lab 1: Installation & Setup (30 minutes)
-Install Argo CD on your Kubernetes cluster and set up CLI access.
+### Lab 1: Installation & Setup (60 minutes)
+Install Argo CD on Rancher Desktop with k3s and set up CLI access.
 
 **What you'll learn:**
-- Installing Argo CD using kubectl
+- Installing Argo CD using kubectl on k3s
 - Accessing the Argo CD UI
 - Installing and configuring the Argo CD CLI
 - Logging in and basic navigation
@@ -33,12 +47,13 @@ Install Argo CD on your Kubernetes cluster and set up CLI access.
 
 ---
 
-### Lab 2: Your First Application (45 minutes)
-Deploy your first application using Argo CD from a Git repository.
+### Lab 2: Your First Application (75 minutes)
+Deploy Google Cloud's microservices demo application using Argo CD from a Git repository.
 
 **What you'll learn:**
 - Creating an Application manifest
 - Connecting to Git repositories
+- Deploying a multi-service microservices application
 - Manual sync operations
 - Viewing application status and resources
 - Troubleshooting sync issues
@@ -47,7 +62,7 @@ Deploy your first application using Argo CD from a Git repository.
 
 ---
 
-### Lab 3: Drift Detection & Self-Healing (30 minutes)
+### Lab 3: Drift Detection & Self-Healing (45 minutes)
 Experiment with drift detection and automated reconciliation.
 
 **What you'll learn:**
@@ -61,21 +76,21 @@ Experiment with drift detection and automated reconciliation.
 
 ---
 
-### Lab 4: AppProjects & Multi-Tenancy (45 minutes)
-Set up multi-tenancy using AppProjects with RBAC.
+### Lab 4: ApplicationSets (60 minutes)
+Use ApplicationSets to manage multiple applications with automation and templating.
 
 **What you'll learn:**
-- Creating AppProjects
-- Restricting source repositories
-- Limiting destination namespaces
-- Configuring resource whitelists/blacklists
-- Simulating team isolation
+- Understanding ApplicationSet patterns
+- List generator for multiple environments
+- Git generator for repository-based apps
+- Matrix generator for complex scenarios
+- Templating applications at scale
 
-[Go to Lab 4 →](./lab-04-appprojects/README.md)
+[Go to Lab 4 →](./lab-04-applicationsets/README.md)
 
 ---
 
-### Lab 5: App of Apps Pattern (60 minutes)
+### Lab 5: App of Apps Pattern (30 minutes)
 Implement the App of Apps pattern to manage multiple applications.
 
 **What you'll learn:**
@@ -89,7 +104,39 @@ Implement the App of Apps pattern to manage multiple applications.
 
 ---
 
-### Lab 6: Environment Promotion (60 minutes)
+## Bonus Labs (Optional)
+
+### Bonus Lab 1: Prometheus Metrics
+Monitor Argo CD with Prometheus and understand GitOps metrics.
+
+**What you'll learn:**
+- Enabling Argo CD metrics
+- Deploying Prometheus
+- Viewing sync metrics
+- Application health metrics
+- Creating alerts for sync failures
+
+[Go to Bonus Lab 1 →](./bonus-lab-01-prometheus/README.md)
+
+---
+
+### Bonus Lab 2: Argo Rollouts - Blue/Green Deployments
+Implement progressive delivery with Argo Rollouts.
+
+**What you'll learn:**
+- Installing Argo Rollouts
+- Blue/Green deployment strategy
+- Canary deployments
+- Analysis and automated rollback
+- Traffic management
+
+[Go to Bonus Lab 2 →](./bonus-lab-02-rollouts/README.md)
+
+---
+
+## Additional Labs (If Time Permits)
+
+### Lab 6: Environment Promotion
 Set up multiple environments and practice GitOps-based promotion.
 
 **What you'll learn:**
@@ -103,7 +150,7 @@ Set up multiple environments and practice GitOps-based promotion.
 
 ---
 
-## Bonus Labs (Optional)
+## Original Labs (Reference)
 
 ### Bonus Lab 1: Helm Integration
 Deep dive into using Helm charts with Argo CD.
@@ -128,31 +175,96 @@ Set up notifications for deployment events.
 
 ## Lab Environment
 
-### Option 1: Local Cluster (Recommended for Workshop)
+### Rancher Desktop with k3s (Workshop Environment)
 
-Use `kind` (Kubernetes in Docker) or `minikube`:
+We'll use **Rancher Desktop** with the **k3s** Kubernetes distribution for this workshop.
 
-```bash
-# Using kind
-kind create cluster --name argocd-workshop
+#### Prerequisites
 
-# Using minikube
-minikube start --cpus=4 --memory=8192
-```
+1. **Install Rancher Desktop:**
+   - Download from: https://rancherdesktop.io/
+   - Follow installation instructions for your OS
+   - Select **k3s** as the Kubernetes engine during setup
+   - Recommended settings:
+     - Memory: 8GB
+     - CPUs: 4
 
-### Option 2: Cloud Cluster
-
-You can use any cloud Kubernetes service:
-- Google Kubernetes Engine (GKE)
-- Azure Kubernetes Service (AKS)
-- Amazon Elastic Kubernetes Service (EKS)
-
-### Verify Cluster Access
+2. **Verify Installation:**
 
 ```bash
+# Check Rancher Desktop is running
 kubectl cluster-info
+
+# Verify k3s nodes
 kubectl get nodes
+
+# Check available resources
+kubectl get namespaces
 ```
+
+---
+
+## GitOps Workflow with Seeds Repository
+
+This workshop follows a true GitOps approach using a dedicated seeds repository.
+
+### Setup
+
+1. **Generate SSH Key** (if you don't have one):
+```bash
+ssh-keygen -t ed25519 -C "your.email@example.com"
+```
+
+2. **Send Your Public Key** to the instructor:
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+3. **Clone the Seeds Repository:**
+```bash
+git clone git@github.com:hmettendorf/kubernetes-workshop-seeds.git
+cd kubernetes-workshop-seeds
+```
+
+4. **Create Your Branch:**
+```bash
+# Replace <username> with your assigned username
+git checkout -b member/<username>
+git push -u origin member/<username>
+```
+
+### Workflow During Labs
+
+Throughout the workshop, you'll:
+
+1. **Copy** lab examples from this workshop repository to your seeds repository
+2. **Commit and push** changes to your branch
+3. **Configure ArgoCD** to watch your branch
+4. **Observe** ArgoCD automatically deploying your changes
+
+**Example:**
+```bash
+# In the seeds repository
+cd kubernetes-workshop-seeds
+
+# Copy a lab example
+cp ../kubernetes-workshop/handson/argocd/lab-02-first-application/application.yaml ./
+
+# Commit and push
+git add application.yaml
+git commit -m "Add microservices demo application"
+git push
+
+# ArgoCD will automatically detect and deploy!
+```
+
+### Benefits
+
+- ✅ True GitOps: Git is the single source of truth
+- ✅ Each participant has their own isolated branch
+- ✅ No cluster resource conflicts (each participant has their own cluster)
+- ✅ Practice real-world GitOps workflows
+- ✅ Simple: just copy, commit, push - no complex scripts!
 
 ---
 
@@ -164,11 +276,12 @@ After completing the labs:
 # Delete the Argo CD namespace
 kubectl delete namespace argocd
 
-# Delete the local cluster (if using kind)
-kind delete cluster --name argocd-workshop
+# If you created other namespaces during labs
+kubectl delete namespace microservices-demo
 
-# Or stop minikube
-minikube stop
+# Rancher Desktop cleanup
+# Simply stop Rancher Desktop via the UI, or reset Kubernetes cluster
+# Settings → Kubernetes → Reset Kubernetes
 ```
 
 ---

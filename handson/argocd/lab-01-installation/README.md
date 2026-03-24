@@ -2,12 +2,12 @@
 
 ## Overview
 
-In this lab, you'll install Argo CD on your Kubernetes cluster and configure access to both the UI and CLI.
+In this lab, you'll install Argo CD on Rancher Desktop with k3s and configure access to both the UI and CLI.
 
-**Duration:** 30 minutes
+**Duration:** 60 minutes
 
 **Learning Objectives:**
-- Install Argo CD using kubectl
+- Install Argo CD on k3s using kubectl
 - Access the Argo CD web UI
 - Install and configure the Argo CD CLI
 - Understand Argo CD architecture components
@@ -16,9 +16,27 @@ In this lab, you'll install Argo CD on your Kubernetes cluster and configure acc
 
 ## Prerequisites
 
-- Access to a Kubernetes cluster with cluster-admin privileges
+- Rancher Desktop installed with k3s running
 - `kubectl` installed and configured
 - Port-forwarding capability (for UI access)
+- Internet access for downloading images
+
+### Verify Rancher Desktop Setup
+
+Before starting, verify your environment:
+
+```bash
+# Check kubectl is configured
+kubectl version --short
+
+# Verify k3s cluster is running
+kubectl get nodes
+
+# Check available resources
+kubectl top nodes  # Optional, requires metrics-server
+```
+
+You should see your k3s node in Ready state.
 
 ---
 
@@ -32,20 +50,34 @@ First, create a dedicated namespace for Argo CD:
 kubectl create namespace argocd
 ```
 
-### 1.2 Install Argo CD
+### 1.2 Install Argo CD via Helm (Recommended)
 
-Apply the official Argo CD installation manifest:
+**Using Helm provides better CRD management and easier customization.**
+
+```bash
+helm install my-argo-cd oci://ghcr.io/argoproj/argo-helm/argo-cd --version 9.4.15 -n argocd
+```
+
+**Alternative: Install via kubectl manifests:**
+
+If you prefer the traditional method:
 
 ```bash
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 ```
 
+**Note:** The Helm method is recommended as it properly handles CRDs and provides better configuration options.
+
 This installs:
 - `argocd-server` - API server and UI
 - `argocd-repo-server` - Repository service
 - `argocd-application-controller` - Application controller
+- `argocd-applicationset-controller` - ApplicationSet controller
 - `argocd-redis` - Cache
 - `argocd-dex-server` - Identity provider integration
+- `argocd-notifications-controller` - Notification service
+
+**Note:** The installation may take 2-3 minutes as container images are pulled.
 
 ### 1.3 Verify Installation
 

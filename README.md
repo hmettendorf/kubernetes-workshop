@@ -25,92 +25,16 @@ This workshop is designed for **engineers with basic Kubernetes knowledge** incl
 
 ## 📅 Day 1 – Packaging, Deployment & Developer Workflow (8h)
 
-### 09:00 – 09:30 | Welcome & Environment Setup
-
-**Topics:**
-
-- Workshop goals & structure
-- Cluster access (local / managed)
-- Tooling check: `kubectl`, `helm`, `skaffold`, container registry access
-- Repo overview (labs & solutions)
-
-### 09:30 – 10:30 | Kubernetes Application Recap (Fast)
-
-**Concepts:**
-
-- Deployment anatomy
-- ConfigMaps & Secrets
-- Services & Ingress (quick overview)
-
-**Lab:**
-
-- Deploy a baseline demo application manually
-- Inspect resources and logs
-
-### 10:30 – 12:00 | Helm – Fundamentals
-
-**Concepts:**
-
-- Why Helm?
-- Chart structure
-- Templates & values
-- Releases and upgrades
-- Helm lifecycle
-
-**Lab:**
-
-- Install an existing Helm chart
-- Explore rendered manifests
-- Modify values and upgrade release
-
-### 12:00 – 13:00 | ☕ Lunch Break
-
-### 13:00 – 14:30 | Helm – Advanced Usage
-
-**Concepts:**
-
-- Template functions & conditionals
-- Values layering (env-specific configs)
-- Hooks
-- Dependencies & subcharts
-- Best practices for chart design
-
-**Lab:**
-
-- Create a Helm chart for the demo app
-- Add configurable resources, replicas, env vars
-- Introduce environment-specific values
-
-### 14:30 – 14:45 | ☕ Break
-
-### 14:45 – 16:15 | Skaffold – Local Dev to Cluster
-
-**Concepts:**
-
-- Problem Skaffold solves
-- Build → tag → deploy workflow
-- Skaffold profiles
-- Integration with Helm
-
-**Lab:**
-
-- Create a `skaffold.yaml`
-- Enable live reload / sync
-- Use profiles for dev vs prod
-- Deploy Helm charts via Skaffold
-
-### 16:15 – 17:00 | Day 1 Wrap-Up
-
-- Common pitfalls
-- Helm + Skaffold workflow recap
-- Q&A
-- **Optional challenge:** Add a second service via Helm
+Led by Holger Tiemeyer
 
 ---
 
-## 📅 Day 2 – GitOps with Argo CD (8h)
+## 📅 Day 2 – GitOps with Argo CD (4.5h)
 
-### 09:00 – 09:30 | GitOps Concepts
+**Environment:** Rancher Desktop with k3s  
+**Demo Application:** [Google Cloud Microservices Demo](https://github.com/GoogleCloudPlatform/microservices-demo)
+
+### 09:00 – 09:30 | GitOps Concepts & Environment Setup
 
 **Concepts:**
 
@@ -119,176 +43,98 @@ This workshop is designed for **engineers with basic Kubernetes knowledge** incl
 - Desired state & reconciliation
 - Git as source of truth
 
-### 09:30 – 10:45 | Argo CD – Installation & Architecture
+**Setup:**
+
+- Verify Rancher Desktop with k3s
+- Tooling check: `kubectl`, `helm`, `argocd` CLI
+- Fork/clone workshop seed repository
+
+### 09:30 – 10:30 | Argo CD – Installation & First Application
 
 **Concepts:**
 
-- Argo CD components
-- App vs AppProject
-- Sync strategies
-- Drift detection
-
-**Lab:**
-
-- Install Argo CD
-- Access UI & CLI
-- Explore built-in applications
-
-### 10:45 – 12:00 | Argo CD Applications
-
-**Concepts:**
-
+- Argo CD architecture & components
+- Installation via Helm chart
 - Application manifests
-- Helm + Kustomize support
-- Sync options (manual vs auto)
-- Health & sync status
+- Sync strategies & health status
 
-**Lab:**
+**Lab 01 - Installation:**
 
-- Deploy the demo app via Argo CD
-- Connect Git repo
-- Trigger syncs via Git commits
-- Observe drift & reconciliation
+- Install Argo CD via Helm (`oci://ghcr.io/argoproj/argo-helm/argo-cd`)
+- Access UI & CLI
+- Configure admin access
 
-### 12:00 – 13:00 | ☕ Lunch Break
+**Lab 02 - First Application:**
 
-### 13:00 – 14:30 | AppProjects & Multi-Tenancy
+- Deploy microservices-demo via Argo CD
+- Connect personal Git branch
+- Observe deployment and health checks
+- Access the application
 
-**Concepts:**
-
-- AppProjects
-- RBAC boundaries in Argo CD
-- Cluster & namespace scoping
-- Repo & destination restrictions
-
-**Lab:**
-
-- Create AppProjects
-- Restrict namespaces & repos
-- Assign applications to projects
-- Simulate multi-team setup
-
-### 14:30 – 14:45 | ☕ Break
-
-### 14:45 – 16:15 | Advanced GitOps Patterns
+### 10:30 – 11:30 | Drift Detection & Reconciliation
 
 **Concepts:**
 
+- Desired vs actual state
+- Auto-sync vs manual sync
+- Self-healing capabilities
+- Sync waves and hooks
+
+**Lab 03 - Drift Detection:**
+
+- Make manual changes via `kubectl`
+- Observe drift in Argo CD
+- Enable auto-sync and self-healing
+- Test reconciliation behavior
+
+### 11:30 – 12:30 | ☕ Lunch Break
+
+### 12:30 – 13:30 | ApplicationSets & Advanced Patterns
+
+**Concepts:**
+
+- ApplicationSets for multi-environment deployment
+- Generators (List, Git, Cluster)
+- Template parameters
 - App of Apps pattern
-- Environment promotion (dev → prod)
-- Helm values per environment
-- Secrets handling (high-level)
 
-**Lab:**
+**Lab 04 - ApplicationSets:**
+
+- Create ApplicationSet for microservices-demo
+- Deploy to multiple namespaces
+- Use Git generator for dynamic configuration
+
+**Lab 05 - App of Apps:**
 
 - Implement App of Apps pattern
-- Split environments
-- Promote changes via Git only
+- Manage multiple applications
+- Environment promotion workflow
 
-### 16:15 – 17:00 | Day 2 Wrap-Up
+### 13:30 – 14:30 | Bonus Content & Wrap-Up
 
-- GitOps anti-patterns
-- Argo CD troubleshooting
+**Bonus Lab 01 - Prometheus Integration (Optional):**
+
+- Expose application metrics
+- Monitor Argo CD with Prometheus
+- Basic PromQL queries for GitOps metrics
+
+**Bonus Lab 02 - Argo Rollouts (Optional):**
+
+- Introduction to progressive delivery
+- Blue/Green deployment strategy
+- Canary deployments with traffic splitting
+
+**Wrap-Up:**
+
+- GitOps best practices
+- Argo CD troubleshooting tips
 - Q&A
-- **Optional challenge:** Auto-sync with rollback
 
 ---
 
 ## 📅 Day 3 – Security & Observability (8h)
 
-### 09:00 – 10:30 | Kubernetes Security – RBAC
-
-**Concepts:**
-
-- Authentication vs Authorization
-- Roles & ClusterRoles
-- RoleBindings
-- Least privilege principle
-
-**Lab:**
-
-- Create service accounts
-- Define roles & bindings
-- Restrict access to namespaces
-- Test permissions with `kubectl auth can-i`
-
-### 10:30 – 12:00 | Kubernetes Security – Network Policies
-
-**Concepts:**
-
-- Default allow vs default deny
-- Ingress & egress rules
-- Namespace isolation
-- Common pitfalls
-
-**Lab:**
-
-- Apply default deny policy
-- Allow app-to-app traffic
-- Break & fix connectivity
-- Visualize traffic flows
-
-### 12:00 – 13:00 | ☕ Lunch Break
-
-### 13:00 – 14:30 | Monitoring – Prometheus
-
-**Concepts:**
-
-- Metrics vs logs vs traces
-- Prometheus architecture
-- Service discovery
-- Scraping & labels
-
-**Lab:**
-
-- Install Prometheus stack
-- Explore metrics
-- Expose app metrics
-- Write basic PromQL queries
-
-### 14:30 – 14:45 | ☕ Break
-
-### 14:45 – 16:15 | Monitoring – Grafana
-
-**Concepts:**
-
-- Dashboards & panels
-- Data sources
-- Alerts (overview)
-
-**Lab:**
-
-- Connect Grafana to Prometheus
-- Import dashboards
-- Build a custom app dashboard
-- Create a basic alert
-
-### 16:15 – 17:00 | Final Wrap-Up & Next Steps
-
-**End-to-end workflow recap:**
-
-```
-Dev → Helm → Skaffold → Git → Argo CD → Secure → Monitor
-```
-
-**Production readiness checklist**
-
-**Recommended next topics:**
-
-- Secrets management
-- Policy as code
-- Tracing & SLOs
-
-**Final Q&A**
-
----
-
-## 🧪 Optional Extras (If Time Allows)
-
-- Helm linting & testing
-- Argo CD notifications
-- RBAC + GitOps integration
-- Prometheus alert routing
+Led by Holger Tiemeyer
 
 ---
 
@@ -300,7 +146,6 @@ Ensure you have the following tools installed:
 
 - `kubectl` (v1.24+)
 - `helm` (v3.10+)
-- `skaffold` (v2.0+)
 - Access to a Kubernetes cluster
 - Container registry credentials
 
@@ -317,5 +162,4 @@ kubectl cluster-info
 # Check tool versions
 kubectl version --client
 helm version
-skaffold version
 ```
