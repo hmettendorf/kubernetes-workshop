@@ -47,7 +47,7 @@ jobs:
             });
             
             // Wait for impress.js to initialize
-            await page.waitForTimeout(2000);
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
             console.log('Generating PDF...');
             await page.pdf({
