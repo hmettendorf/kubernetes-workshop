@@ -9,13 +9,10 @@ spec:
       elements:
       - environment: dev
         namespace: shop-dev
-        replicas: "1"
       - environment: staging
         namespace: shop-staging
-        replicas: "1"
       - environment: prod
         namespace: shop-prod
-        replicas: "2"
   
   template:
     metadata:
@@ -36,7 +33,6 @@ spec:
               create: false
             frontend:
               externalService: true
-              replicas: {{replicas}}
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'

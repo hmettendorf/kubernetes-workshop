@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: guestbook-autosync
+  name: microservices-demo
   namespace: argocd
 spec:
   project: default
   
   source:
-    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
     targetRevision: HEAD
-    path: guestbook
+    path: release
   
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: microservices-demo
   
   syncPolicy:
     automated:

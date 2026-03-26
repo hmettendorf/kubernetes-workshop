@@ -24,34 +24,32 @@ Explore Argo CD's drift detection capabilities and automated reconciliation usin
 
 ## Step 1: Ensure Application is Deployed
 
-### 1.1 Check Application Status
+### 1.1 Check Application Status via UI
 
-```bash
-argocd app list
-```
+1. Open the Argo CD UI: `https://localhost:8080`
+2. Look for the **microservices-demo** application
+3. If it's not there, you need to recreate it
 
-If microservices-demo isn't deployed, create it:
+If microservices-demo isn't deployed, create it via UI:
 
-```bash
-argocd app create microservices-demo \
-  --repo https://github.com/GoogleCloudPlatform/microservices-demo.git \
-  --path release \
-  --dest-server https://kubernetes.default.svc \
-  --dest-namespace microservices-demo \
-  --sync-option CreateNamespace=true
-
-argocd app sync microservices-demo
-```
+1. Click **+ NEW APP**
+2. Fill in the details:
+   - Application Name: `microservices-demo`
+   - Project: `default`
+   - Repository URL: `https://github.com/GoogleCloudPlatform/microservices-demo.git`
+   - Revision: `HEAD`
+   - Path: `release`
+   - Cluster URL: `https://kubernetes.default.svc`
+   - Namespace: `microservices-demo`
+   - Check **Auto-create namespace**
+3. Click **CREATE**
+4. Click **SYNC** and then **SYNCHRONIZE** to deploy
 
 ### 1.2 Verify Healthy State
 
-```bash
-argocd app get microservices-demo
-```
-
-Should show:
-- **STATUS: Synced**
-- **HEALTH: Healthy**
+In the UI:
+- Application should show **Synced** and **Healthy**
+- All resources should be green in the tree view
 
 Wait for all pods to be running:
 
@@ -94,61 +92,47 @@ Now shows: `REPLICAS: 3` and you'll see 3 frontend pods running.
 
 ## Step 3: Observe Drift Detection
 
-### 3.1 Check Application Status (CLI)
+### 3.1 Check Application Status via UI
 
-```bash
-argocd app get microservices-demo
-```
-
-After a few seconds (Argo CD polls every 3 minutes by default), status will show:
-- **STATUS: OutOfSync**
-- Diff showing replica count changed
+1. Open the Argo CD UI
+2. Look at the **microservices-demo** application
+3. After a few seconds (Argo CD polls every 3 minutes by default), the status will show **OutOfSync**
+4. The application tile will turn yellow/orange
+5. You'll see the drift indicator
 
 If it hasn't detected yet, force a refresh:
+1. Click on the application
+2. Click the **REFRESH** button (circular arrow icon) at the top
 
-```bash
-argocd app get microservices-demo --refresh
-```
+### 3.2 View Detailed Diff via UI
 
-### 3.2 View Detailed Diff
+In the UI:
+1. Click on the **microservices-demo** application
+2. Click the **APP DIFF** button at the top
+3. This shows exact differences between Git and cluster
+4. You'll see the replica count change highlighted:
+   - Red (removed): `replicas: 1`
+   - Green (added): `replicas: 3`
 
-```bash
-argocd app diff microservices-demo
-```
+### 3.3 Observe in Resource Tree
 
-This shows the exact differences between Git and cluster:
-
-```diff
-- spec:
--   replicas: 1
-+ spec:
-+   replicas: 3
-```
-
-### 3.3 Observe in UI
-
-1. Open Argo CD UI
-2. Click on **microservices-demo** application
-3. Notice the **OutOfSync** badge
-4. Click **APP DIFF** button to see differences
-5. Click on the **frontend** deployment to see specific changes
-
-The UI highlights:
-- Resources that are out of sync (yellow indicator)
-- Specific field differences
-- Color coding (red = removed, green = added)
+1. In the application view, look at the resource tree on the left
+2. The **frontend** deployment will have a yellow/orange indicator
+3. Click on the frontend deployment
+4. The **SUMMARY** tab shows the live replica count vs desired
+5. Click **DIFF** tab to see the specific field differences
 
 ---
 
 ## Step 4: Manual Reconciliation
 
-### 4.1 Sync to Fix Drift
+### 4.1 Sync to Fix Drift via UI
 
 Sync the application to restore Git state:
 
-```bash
-argocd app sync microservices-demo
-```
+1. Click the **SYNC** button at the top
+2. Review the resources to be synced
+3. Click **SYNCHRONIZE**
 
 ### 4.2 Verify Reconciliation
 
@@ -158,11 +142,9 @@ kubectl get deployment frontend -n microservices-demo
 
 Replicas should be back to: `1`
 
-```bash
-argocd app get microservices-demo
-```
-
-Status should show: **Synced** and **Healthy**
+In the UI:
+- Application status should show **Synced** and **Healthy**
+- The frontend deployment indicator returns to green
 
 ---
 
@@ -172,35 +154,29 @@ Self-healing automatically reverts manual changes.
 
 ### 5.1 Current Sync Policy
 
-View current policy:
+View current policy in the UI:
+1. Click on the **microservices-demo** application
+2. Click **APP DETAILS** button
+3. Look at the **SYNC POLICY** section
+4. It should show "Manual" or no auto-sync
 
-```bash
-argocd app get microservices-demo | grep -A 3 "Sync Policy"
-```
-
-Shows: Manual sync (no automated policy)
-
-### 5.2 Enable Automated Sync with Self-Heal
+### 5.2 Enable Automated Sync with Self-Heal via UI
 
 Update the application to enable self-healing:
 
-```bash
-argocd app set microservices-demo \
-  --sync-policy automated \
-  --self-heal
-```
+1. In the **APP DETAILS** view, find **SYNC POLICY**
+2. Click **ENABLE AUTO-SYNC**
+3. In the dialog that appears:
+   - Check ☑ **PRUNE RESOURCES**
+   - Check ☑ **SELF HEAL**
+4. Click **OK**
 
 ### 5.3 Verify Configuration
 
-```bash
-argocd app get microservices-demo
-```
-
-Should show:
-```
-Sync Policy:     Automated
-  Self Heal:     true
-```
+In the **APP DETAILS** view, the SYNC POLICY section should now show:
+- Auto-Sync: **Enabled**
+- Prune Resources: **Enabled**
+- Self Heal: **Enabled**
 
 ---
 
@@ -231,15 +207,14 @@ Press `Ctrl+C` to stop watching.
 1. Open the Argo CD UI
 2. Watch the **microservices-demo** application
 3. You might briefly see it go OutOfSync, then immediately Synced again
-4. Click on Activity tab to see the self-heal event
+4. Click on the **EVENTS** tab (in APP DETAILS) to see the self-heal event
+5. Look for automated sync events in the activity log
 
-### 6.4 Check Application Events
+### 6.4 Check Application Status
 
-```bash
-argocd app get microservices-demo
-```
-
-Look for recent sync events showing self-healing.
+In the UI:
+- Application should remain **Synced** and **Healthy**
+- Look for recent sync events showing self-healing in the timeline
 
 ---
 
@@ -329,24 +304,26 @@ For this workshop, we accept the random NodePort or use port-forwarding to avoid
 
 Prune automatically deletes resources removed from Git.
 
-### 9.1 Enable Prune
+### 9.1 Verify Prune is Enabled
 
-```bash
-argocd app set microservices-demo --auto-prune
-```
+You already enabled prune in Step 5.2! Check in the UI:
 
-### 9.2 Verify Configuration
+1. Click on the application
+2. Go to **APP DETAILS**
+3. Look at **SYNC POLICY** section
+4. Verify **Prune Resources** is enabled
 
-```bash
-argocd app get microservices-demo
-```
+If not enabled:
+1. Click **ENABLE AUTO-SYNC** (or **EDIT** if already auto-sync)
+2. Check ☑ **PRUNE RESOURCES**
+3. Click **OK**
 
-Should show:
-```
-Sync Policy:     Automated
-  Prune:         true
-  Self Heal:     true
-```
+### 9.2 Verify Configuration via UI
+
+In APP DETAILS:
+- Sync Policy: **Automated**
+- Prune: **Enabled**
+- Self Heal: **Enabled**
 
 ### 9.3 Understanding Prune
 
@@ -494,14 +471,13 @@ watch kubectl get deployments -n microservices-demo
 
 ### Exercise 2: Disable Self-Heal Temporarily
 
-```bash
-argocd app set microservices-demo --self-heal=false
-kubectl scale deployment frontend --replicas=3 -n microservices-demo
-# Observe: Drift detected but NOT auto-corrected
-
-# Re-enable
-argocd app set microservices-demo --self-heal=true
-```
+Via UI:
+1. Go to **APP DETAILS**
+2. Find **SYNC POLICY** section
+3. Click **DISABLE AUTO-SYNC**
+4. Manually scale: `kubectl scale deployment frontend --replicas=3 -n microservices-demo`
+5. Observe: Drift detected but NOT auto-corrected
+6. Re-enable: Click **ENABLE AUTO-SYNC**, check **SELF HEAL**, click **OK**
 
 ### Exercise 3: Explore Sync Options
 
@@ -536,12 +512,12 @@ Apply and observe behavior.
 
 ### Problem: Self-heal not working
 
-**Solution:** Check sync policy is enabled:
-```bash
-argocd app get microservices-demo | grep "Self Heal"
-```
-
-Should show: `Self Heal: true`
+**Solution:** Check sync policy is enabled in the UI:
+1. Click on the application
+2. Go to **APP DETAILS**
+3. Verify **SYNC POLICY** shows:
+   - Auto-Sync: Enabled
+   - Self Heal: Enabled
 
 ### Problem: Too frequent reconciliation
 
@@ -560,12 +536,11 @@ data:
 
 ### Problem: Resources not being pruned
 
-**Solution:** Ensure prune is enabled:
-```bash
-argocd app get microservices-demo | grep Prune
-```
-
-Should show: `Prune: true`
+**Solution:** Ensure prune is enabled via the UI:
+1. Click on the application  
+2. Go to **APP DETAILS**
+3. Check **SYNC POLICY** section
+4. Verify **Prune Resources** is enabled
 
 ### Problem: Application shows Degraded health
 
@@ -581,11 +556,13 @@ May need to increase Rancher Desktop resources.
 
 ## Clean Up
 
-Keep the microservices-demo app for the next lab, or delete:
+Keep the microservices-demo app for the next lab, or delete via UI:
 
-```bash
-argocd app delete microservices-demo
-```
+1. Go to the Applications view
+2. Click the three dots ⋮ on the microservices-demo application
+3. Select **Delete**  
+4. Check **Cascade** to delete all resources
+5. Confirm deletion
 
 ---
 

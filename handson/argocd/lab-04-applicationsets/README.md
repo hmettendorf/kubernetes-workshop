@@ -87,7 +87,6 @@ cat appset-microservices-environments.yaml
 
 **Key features:**
 - Uses List generator to define 3 environments: dev, staging, prod
-- Different replica counts per environment (prod has 2 frontend replicas)
 - Istio features disabled via Helm values
 - Automatic sync enabled for all environments
 - Each environment isolated in its own namespace
@@ -96,7 +95,7 @@ cat appset-microservices-environments.yaml
 The ApplicationSet will generate 3 Applications:
 - `shop-dev` → deploys to `shop-dev` namespace
 - `shop-staging` → deploys to `shop-staging` namespace
-- `shop-prod` → deploys to `shop-prod` namespace with 2 frontend replicas
+- `shop-prod` → deploys to `shop-prod` namespace
 
 ### 2.3 Commit and Push
 
@@ -117,25 +116,25 @@ git push
 kubectl apply -f appset-microservices-environments.yaml
 ```
 
-### 2.5 Verify Applications Created
+### 2.5 Verify Applications Created via UI
 
+In the UI:
+1. Go to the **Applications** view
+2. You should see three shop applications:
+   - shop-dev
+   - shop-staging
+   - shop-prod
+3. Each has labels showing the environment
+4. Click on each to see the full microservices stack deployed
+
+**Also verify via kubectl:**
 ```bash
 # Check ApplicationSet
 kubectl get applicationset -n argocd
 
-# Check generated Applications
-argocd app list | grep shop-
-
-# You should see:
-# - shop-dev
-# - shop-staging
-# - shop-prod
+# Check generated Applications  
+kubectl get applications -n argocd | grep shop-
 ```
-
-1. Open Argo CD UI
-2. You should see three shop applications
-3. Each deploys the full microservices stack to a different namespace
-4. Notice the environment labels
 
 ### 2.6 View in UI
 
@@ -168,22 +167,22 @@ kubectl get pods -n shop-prod
 
 **Expected:** Each environment will have 11 microservices running.
 
-### 2.8 Verify Different Configurations
+### 2.8 Verify Environment Configuration
 
-Check that prod has 2 frontend replicas while dev/staging have 1:
+Each environment has the same microservices deployed:
 
 ```bash
-echo "Dev frontend replicas:"
-kubectl get deployment frontend -n shop-dev -o jsonpath='{.spec.replicas}'
+echo "Dev environment:"
+kubectl get deployments -n shop-dev
 
-echo -e "\nStaging frontend replicas:"
-kubectl get deployment frontend -n shop-staging -o jsonpath='{.spec.replicas}'
+echo -e "\nStaging environment:"
+kubectl get deployments -n shop-staging
 
-echo -e "\nProd frontend replicas:"
-kubectl get deployment frontend -n shop-prod -o jsonpath='{.spec.replicas}'
+echo -e "\nProd environment:"
+kubectl get deployments -n shop-prod
 ```
 
-**This demonstrates how ApplicationSets can deploy the same application with environment-specific configurations!**
+**This demonstrates how ApplicationSets can deploy the same application to multiple environments!**
 
 ---
 
@@ -244,15 +243,19 @@ spec:
 kubectl apply -f appset-git-directories.yaml
 ```
 
-### 3.4 View Generated Applications
+### 3.4 View Generated Applications via UI
 
+In the UI:
+1. Go to **Applications**
+2. Look for applications with names starting with `auto-`:
+   - auto-guestbook
+   - auto-helm-guestbook
+3. Click on them to see they were automatically created from Git directories
+
+**Also check via kubectl:**
 ```bash
-argocd app list | grep auto-
+kubectl get applications -n argocd | grep auto-
 ```
-
-This creates Applications for the specified directories:
-- `auto-guestbook`
-- `auto-helm-guestbook`
 
 ### 3.5 Clean Up (Optional)
 
@@ -264,225 +267,56 @@ kubectl delete applicationset demo-apps-auto -n argocd
 
 ---
 
-## Step 4: Matrix Generator - Real-World Example
-
-### 4.1 Understanding Matrix Generator
-
-The Matrix generator combines two generators to create a Cartesian product.
-
-**Real-world example:** Deploy multiple versions of the microservices demo to multiple environments for A/B testing or blue/green deployments.
-
-### 4.2 Create Matrix ApplicationSet
-
-For this example, we'll deploy different configurations to different environments:
-
-Create `appset-matrix-shop.yaml`:
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: matrix-shop-configs
-  namespace: argocd
-spec:
-  generators:
-  - matrix:
-      generators:
-      - list:
-          elements:
-          - config: standard
-            replicas: "1"
-          - config: performance
-            replicas: "2"
-      - list:
-          elements:
-          - env: dev
-            namespace: matrix-dev
-          - env: test
-            namespace: matrix-test
-  
-  template:
-    metadata:
-      name: 'shop-{{config}}-{{env}}'
-      labels:
-        config: '{{config}}'
-        environment: '{{env}}'
-    spec:
-      project: default
-      source:
-        repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
-        targetRevision: HEAD
-        path: helm-chart
-        helm:
-          values: |
-            networkPolicies:
-              create: false
-            sidecars:
-              create: false
-            frontend:
-              replicas: {{replicas}}
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: '{{namespace}}'
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-        - CreateNamespace=true
-```
-
-### 4.3 Apply Matrix ApplicationSet
-
-**Warning:** This creates 4 applications (2 configs × 2 environments), each deploying the full microservices stack. This is resource-intensive!
-
-For the workshop, let's use a simpler example:
-
-Create `appset-matrix-simple.yaml`:
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: matrix-apps-envs
-  namespace: argocd
-spec:
-  generators:
-  - matrix:
-      generators:
-      - list:
-          elements:
-          - app: guestbook
-            path: guestbook
-          - app: helm-guestbook
-            path: helm-guestbook
-      - list:
-          elements:
-          - env: dev
-            namespace: dev
-          - env: staging
-            namespace: staging
-  
-  template:
-    metadata:
-      name: '{{app}}-{{env}}'
-    spec:
-      project: default
-      source:
-        repoURL: https://github.com/argoproj/argocd-example-apps.git
-        targetRevision: HEAD
-        path: '{{path}}'
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: '{{namespace}}'
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-        - CreateNamespace=true
-```
-
-### 4.4 Apply Simple Matrix ApplicationSet
-
-```bash
-kubectl apply -f appset-matrix-simple.yaml
-```
-
-### 4.5 View Generated Applications
-
-```bash
-argocd app list
-```
-
-This creates:
-- `guestbook-dev`
-- `guestbook-staging`
-- `helm-guestbook-dev`
-- `helm-guestbook-staging`
-
-**Result:** 2 apps × 2 environments = 4 Applications automatically created!
-
-### 4.6 Real-World Matrix Use Case
-
-**For production scenarios**, the Matrix generator with microservices demo would enable:
-
-- **A/B Testing:** Deploy different versions to different user segments
-- **Blue/Green:** Deploy old and new versions side-by-side
-- **Performance Testing:** Deploy with different resource configurations
-- **Multi-Region:** Deploy to multiple cloud regions or clusters
-
-**Example pattern:**
-```
-2 versions × 3 environments × 2 regions = 12 Applications
-All managed by one ApplicationSet!
-```
-
----
-
-## Step 5: Template Customization with Microservices Demo
+## Step 4: Template Customization Examples
 
 ### 5.1 Using Parameters in Templates
 
 ApplicationSets support various template parameters to customize deployments per environment.
 
-### 5.2 Advanced Templating - Environment-Specific Resources
+### 5.2 Environment-Specific Configuration Example
 
-Create `appset-advanced-microservices.yaml`:
+Here's how you could customize different aspects per environment using parameters:
+
+**Example with labels and annotations:**
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: advanced-shop
+  name: customized-apps
   namespace: argocd
 spec:
   generators:
   - list:
       elements:
       - env: dev
-        namespace: shop-dev
-        frontendReplicas: "1"
-        cartReplicas: "1"
-        enableLoadGen: "true"
+        namespace: app-dev
+        resources: "small"
+        monitoring: "false"
       - env: staging
-        namespace: shop-staging
-        frontendReplicas: "2"
-        cartReplicas: "1"
-        enableLoadGen: "true"
+        namespace: app-staging
+        resources: "medium"
+        monitoring: "true"
       - env: prod
-        namespace: shop-prod
-        frontendReplicas: "3"
-        cartReplicas: "2"
-        enableLoadGen: "false"
+        namespace: app-prod
+        resources: "large"
+        monitoring: "true"
   
   template:
     metadata:
-      name: 'shop-advanced-{{env}}'
+      name: 'myapp-{{env}}'
       labels:
         environment: '{{env}}'
-        managed-by: applicationset
+        resources: '{{resources}}'
       annotations:
-        frontend-replicas: '{{frontendReplicas}}'
-        cart-replicas: '{{cartReplicas}}'
+        monitoring-enabled: '{{monitoring}}'
+        managed-by: applicationset
     spec:
       project: default
       source:
-        repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
+        repoURL: https://github.com/argoproj/argocd-example-apps.git
         targetRevision: HEAD
-        path: helm-chart
-        helm:
-          values: |
-            networkPolicies:
-              create: false
-            sidecars:
-              create: false
-            frontend:
-              replicas: {{frontendReplicas}}
-            cartservice:
-              replicas: {{cartReplicas}}
-            loadgenerator:
-              create: {{enableLoadGen}}
+        path: guestbook
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{namespace}}'
@@ -495,79 +329,36 @@ spec:
 ```
 
 **Key customizations:**
-- **Dev:** Minimal resources, load generator enabled for testing
-- **Staging:** Medium resources, load generator for performance testing
-- **Prod:** High resources, no load generator (real traffic only)
+- **Dev:** Small resources, no monitoring
+- **Staging:** Medium resources, monitoring enabled  
+- **Prod:** Large resources, monitoring enabled
 
-### 5.3 Simpler Example for Workshop
+### 5.3 Using Kustomize Replicas Override
 
-For the workshop, let's use a lightweight version:
-
-Create `appset-template-demo.yaml`:
+If you need to set different replica counts per environment, use Kustomize:
 
 ```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: template-demo
-  namespace: argocd
-spec:
-  generators:
-  - list:
-      elements:
-      - env: dev
-        replicas: "1"
-        resources: "small"
-      - env: prod
-        replicas: "3"
-        resources: "large"
-  
-  template:
-    metadata:
-      name: 'app-{{env}}'
-      annotations:
-        replicas: '{{replicas}}'
-        resources: '{{resources}}'
-    spec:
-      project: default
-      source:
-        repoURL: https://github.com/argoproj/argocd-example-apps.git
-        targetRevision: HEAD
-        path: guestbook
-        kustomize:
-          replicas:
-          - name: guestbook-ui
-            count: '{{replicas}}'
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: 'app-{{env}}'
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-        - CreateNamespace=true
+template:
+  spec:
+    source:
+      path: guestbook
+      kustomize:
+        replicas:
+        - name: guestbook-ui
+          count: '{{replicas}}'
 ```
 
-Apply:
-
-```bash
-kubectl apply -f appset-template-demo.yaml
-```
-
-### 5.4 Verify Different Configurations
-
-```bash
-# Check dev environment (should have 1 replica)
-kubectl get deployment guestbook-ui -n app-dev -o jsonpath='{.spec.replicas}'
-
-# Check prod environment (should have 3 replicas)
-kubectl get deployment guestbook-ui -n app-prod -o jsonpath='{.spec.replicas}'
+Then in your generators, add:
+```yaml
+- env: dev
+  replicas: "1"
+- env: prod
+  replicas: "3"
 ```
 
 ---
 
-## Step 6: Cluster Generator (Conceptual)
+## Step 5: Cluster Generator (Conceptual)
 
 ### 6.1 Understanding Cluster Generator
 
@@ -625,7 +416,7 @@ spec:
 
 ---
 
-## Step 7: Real-World ApplicationSet Best Practices
+## Step 6: Real-World ApplicationSet Best Practices
 
 ### 7.1 Naming Conventions
 
@@ -674,74 +465,60 @@ template:
 
 ## Exercises
 
-### Exercise 1: Create Multi-Environment Microservices ApplicationSet
+Try these challenges:
 
-Create an ApplicationSet that deploys the microservices demo to dev, qa, and prod with different configurations:
+### Exercise 1: Add a New Environment
+
+Modify the `microservices-environments` ApplicationSet to add a new environment:
+
+```bash
+kubectl edit applicationset microservices-environments -n argocd
+```
+
+Add this to the list of elements:
+```yaml
+- environment: qa
+  namespace: shop-qa
+```
+
+Save and verify a new Application appears in the UI automatically.
+
+### Exercise 2: Create Custom Labels
+
+Create an ApplicationSet with custom labels per environment:
 
 ```yaml
 generators:
 - list:
     elements:
     - env: dev
-      replicas: "1"
-      loadGenerator: "true"
-    - env: qa
-      replicas: "2"
-      loadGenerator: "true"
+      team: "platform"
+      tier: "development"
     - env: prod
-      replicas: "3"
-      loadGenerator: "false"
+      team: "sre"
+      tier: "production"
 ```
 
-**Challenge:** Use Helm values to control:
-- Frontend replica count
-- Load generator enabled/disabled
-- Cart service replica count
+Use these in the template metadata labels.
 
-### Exercise 2: Modify Existing ApplicationSet
+### Exercise 3: Git Directory Generator
 
-Update the `microservices-environments` ApplicationSet to add a new environment:
-- Add `qa` environment with 1 replica
-- Apply the change
-- Verify a new Application is created automatically
-
-```bash
-kubectl edit applicationset microservices-environments -n argocd
-# Add qa environment to the list
-# Save and watch the new application appear
-argocd app list | grep shop-
-```
-
-### Exercise 3: Resource Limits Per Environment
-
-Create an ApplicationSet that sets different resource limits for each environment:
+Create an ApplicationSet using Git directory generator to automatically deploy all apps in specific paths:
 
 ```yaml
-- env: dev
-  cpu: "100m"
-  memory: "128Mi"
-- env: prod
-  cpu: "500m"
-  memory: "512Mi"
+generators:
+- git:
+    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    revision: HEAD
+    directories:
+    - path: 'helm-*'
 ```
 
-Use Helm values to apply these limits to the frontend service.
+### Exercise 4: Matrix for Multi-Region Deployment
 
-### Exercise 4: Git Directory Generator with Filters
-
-Explore the argocd-example-apps repository and create a filtered git directory generator:
-
-```yaml
-directories:
-- path: 'helm-*'  # Only Helm-based apps
-- path: 'kustomize-*'  # Only Kustomize-based apps
-```
-
-### Exercise 5: Matrix for Multi-Region Deployment
-
-Design (don't deploy) a Matrix generator that would deploy microservices to:
-- 2 versions (blue, green)
-- 3 environments (dev, staging, prod)
+Design (don't deploy) a Matrix generator that would deploy apps to:
+- 2 apps (frontend, backend)
+- 3 environments (dev, staging, prod)  
 - 2 clusters (us-east, eu-west)
 
 Calculate: How many Applications would be created?
@@ -807,9 +584,7 @@ kubectl get applicationset <name> -n argocd -o jsonpath='{.status.conditions}'
 # Remove microservices environments
 kubectl delete applicationset microservices-environments -n argocd
 
-# Remove simple examples
-kubectl delete applicationset matrix-apps-envs -n argocd
-kubectl delete applicationset template-demo -n argocd
+# Remove other examples if created
 kubectl delete applicationset demo-apps-auto -n argocd
 ```
 
@@ -819,16 +594,7 @@ kubectl delete applicationset demo-apps-auto -n argocd
 # Shop environments
 kubectl delete namespace shop-dev shop-staging shop-prod
 
-# Simple demo environments
-kubectl delete namespace dev staging prod
-
-# Matrix demo environments
-kubectl delete namespace matrix-dev matrix-test
-
-# Template demo
-kubectl delete namespace app-dev app-prod
-
-# Auto-generated
+# Auto-generated (if you created the git directory example)
 kubectl delete namespace auto-guestbook auto-helm-guestbook
 ```
 

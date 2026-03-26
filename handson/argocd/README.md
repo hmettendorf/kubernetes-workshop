@@ -14,10 +14,10 @@ Each lab is self-contained with:
 Before starting these labs, ensure you have:
 - Rancher Desktop with k3s installed (see Lab Environment below)
 - `kubectl` installed and configured
-- `argocd` CLI installed
 - Git installed
 - SSH key generated and added to GitHub deploy keys
 - Basic understanding of Kubernetes concepts
+- Web browser to access the Argo CD UI
 
 ## Workshop Schedule (Day 2)
 
@@ -40,7 +40,6 @@ Install Argo CD on Rancher Desktop with k3s and set up CLI access.
 **What you'll learn:**
 - Installing Argo CD using kubectl on k3s
 - Accessing the Argo CD UI
-- Installing and configuring the Argo CD CLI
 - Logging in and basic navigation
 
 [Go to Lab 1 →](./lab-01-installation/README.md)
@@ -304,10 +303,10 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 
 **Issue: Application stuck in Progressing state**
 ```bash
-# Check application status
-argocd app get <app-name>
+# Check application status in the UI
+# Navigate to Applications → Click on the app → View Events tab
 
-# View detailed events
+# Or check via kubectl
 kubectl get events -n <namespace>
 ```
 

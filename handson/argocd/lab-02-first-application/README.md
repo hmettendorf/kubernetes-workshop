@@ -10,9 +10,9 @@ Deploy Google Cloud's microservices demo application using Argo CD. This is a re
 - Create an Argo CD Application resource
 - Connect to Git repositories
 - Deploy a complex microservices application
-- Perform manual sync operations
+- Perform sync operations via the UI
 - Monitor application health and sync status
-- Use the Argo CD UI and CLI
+- Use the Argo CD UI effectively
 - Understand multi-service deployments
 
 ---
@@ -20,8 +20,7 @@ Deploy Google Cloud's microservices demo application using Argo CD. This is a re
 ## Prerequisites
 
 - Completed Lab 1 (Argo CD installed)
-- Argo CD CLI logged in
-- Access to the Argo CD UI
+- Access to the Argo CD UI  
 - Rancher Desktop with k3s running
 
 ---
@@ -106,70 +105,60 @@ Now tell Argo CD to manage this application:
 kubectl apply -f microservices-demo-app.yaml
 ```
 
-### 2.2 View Application Status
+### 2.2 View Application in the UI
 
-```bash
-# View in CLI
-argocd app list
+1. Open the Argo CD UI: `https://localhost:8080`
+2. You should see the **microservices-demo** application appear in the applications list
+3. Click on the application to view details
 
-# Get detailed info
-argocd app get microservices-demo
-```
-
-Output should show:
-```
-NAME                 CLUSTER                         NAMESPACE          PROJECT  STATUS     HEALTH   SYNCPOLICY  CONDITIONS
-microservices-demo   https://kubernetes.default.svc  microservices-demo default  OutOfSync  Missing  <none>      <none>
-```
-
-Notice:
+The application should show:
 - **STATUS: OutOfSync** - Git state differs from cluster state
 - **HEALTH: Missing** - Resources don't exist in cluster yet
-- **No syncPolicy** - Manual sync required
+- No auto-sync enabled - Manual sync required
 
 ---
 
-## Step 3: Sync the Application
+## Step 3: Sync the Application via UI
 
-### 3.1 Manual Sync via CLI
+### 3.1 Manual Sync using the Web UI
 
-Sync the application to deploy all microservices:
+To deploy all microservices via the UI:
 
-```bash
-argocd app sync microservices-demo
-```
+1. Click on the **microservices-demo** application
+2. Click the **SYNC** button at the top
+3. A sync options dialog will appear:
+   - Review the resources that will be synced
+   - Keep default options selected
+   - Click **SYNCHRONIZE**
 
-Watch the sync progress. You'll see:
-- Multiple resources being created
+You'll see:
+- The sync operation start
+- Multiple resources being created in real-time
 - Deployments rolling out
-- Services being exposed
 - Health status changing from Missing → Progressing → Healthy
 
 **Note:** This may take 2-5 minutes as all container images are pulled.
 
-### 3.2 Monitor Deployment Progress
+### 3.2 Monitor Deployment Progress in UI
 
-Watch the deployment in real-time:
+Watch the deployment in real-time within the Argo CD UI:
 
+1. The application view shows a live graph of all services
+2. Watch pods appear and turn from gray → blue → green
+3. Click on individual deployments to see pod status
+4. Use the **Events** tab to see detailed deployment events
+
+**In a terminal**, you can also watch:
 ```bash
 # Watch pods being created
 kubectl get pods -n microservices-demo -w
-
-# In another terminal, check deployment status
-kubectl get deployments -n microservices-demo
 ```
 
 ### 3.3 Verify Deployment
 
-Check the application status:
-
-```bash
-argocd app get microservices-demo
-```
-
-You should eventually see:
-- **STATUS: Synced**
-- **HEALTH: Healthy** (once all pods are running)
+In the Argo CD UI:
+- Application tile should show **Synced** and **Healthy** (once all pods are running)
+- The graph view shows all 11 microservices in green
 
 Verify all resources in Kubernetes:
 
@@ -179,9 +168,6 @@ kubectl get all -n microservices-demo
 
 # Check individual deployments
 kubectl get deployments -n microservices-demo
-
-# Check services
-kubectl get services -n microservices-demo
 
 # Verify all pods are running
 kubectl get pods -n microservices-demo
@@ -320,130 +306,95 @@ Let's scale the frontend deployment:
 kubectl scale deployment frontend -n microservices-demo --replicas=3
 ```
 
-**Note:** If you patched the service NodePort in Step 5, that patch also created drift! You can check:
+**Note:** If you patched the service NodePort in Step 5, that patch also created drift! You can check in the UI.
 
-```bash
-# Check if application shows OutOfSync
-argocd app get microservices-demo
-```
-
-The service patch won't be detected unless you refresh the application or wait for the reconciliation cycle.
-
-### 7.2 Check Drift in Argo CD
+### 7.2 Check Drift in Argo CD UI
 
 View the application in Argo CD:
 
-```bash
-argocd app get microservices-demo
-```
+1. Open the **microservices-demo** application in the UI
+2. Notice the application status shows **OutOfSync**
+3. The application tile turns yellow/orange
+4. Argo CD detected the drift!
 
-Notice:
-- **STATUS: OutOfSync** - Because we manually changed replicas
-- Argo CD detected the drift!
-
-### 7.3 View the Diff
+### 7.3 View the Diff in the UI
 
 See exactly what changed:
 
-```bash
-argocd app diff microservices-demo
-```
+1. In the application view, click the **APP DIFF** button at the top
+2. This shows a side-by-side comparison of Git vs Live state
+3. You'll see the replica count difference highlighted
+4. Click on the **frontend** deployment in the resource tree to see specific changes
 
-**In the UI:**
-1. The application shows "OutOfSync"
-2. Click on the frontend deployment
-3. View the diff showing the replica change
-
-### 7.4 Sync to Revert
+### 7.4 Sync to Revert via UI
 
 Since Git is the source of truth, sync to revert our manual change:
 
-```bash
-argocd app sync microservices-demo
-```
+1. Click the **SYNC** button
+2. In the sync dialog, review the changes
+3. Click **SYNCHRONIZE**
 
 The frontend will scale back to 1 replica (as defined in Git).
+
+You can verify:
+```bash
+kubectl get deployment frontend -n microservices-demo
+# Should show 1/1 replicas
+```
 
 ---
 
 ## Step 8: Create Application Declaratively
 
-The GitOps way: define the Application as YAML.
+The GitOps way: define the Application as YAML (which you've already done!).
 
-### 8.1 Delete Current Application
+### 8.1 Review What You've Learned
 
-```bash
-argocd app delete microservices-demo
-```
+You've already created the application declaratively in Step 2! The file `microservices-demo-app.yaml` is the declarative definition.
 
-Confirm with `y`.
-
-### 8.2 Create Application Manifest
-
-Create `microservices-demo-app.yaml`:
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: microservices-demo
-  namespace: argocd
-spec:
-  project: default
-  
-  source:
-    repoURL: https://github.com/GoogleCloudPlatform/microservices-demo.git
-    targetRevision: HEAD
-    path: helm-chart
-    helm:
-      values: |
-        serviceAccounts:
-          create: true
-        networkPolicies:
-          create: false
-        sidecars:
-          create: false
-        frontend:
-          externalService: true
-  
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: microservices-demo
-  
-  syncPolicy:
-    automated:
-      prune: false
-      selfHeal: false
-    syncOptions:
-    - CreateNamespace=true
-```
-
-**Key changes from previous version:**
-- Using `helm-chart` path instead of `release`
-- Added `helm.values` to disable Istio features
-- Disables NetworkPolicies and sidecars (not needed without service mesh)
-- Enables external service (LoadBalancer type)
-
-**Note:** The LoadBalancer service will get a random NodePort. After deployment, you can patch it to use a specific port (see Step 5) or use port-forwarding for access.
-
-### 8.3 Apply the Application
+If you needed to delete and recreate:
 
 ```bash
-kubectl apply -f microservices-demo-app.yaml
+# Delete via kubectl
+kubectl delete application microservices-demo -n argocd
 ```
+
+**Or via UI:**
+1. Go to Applications
+2. Click the three dots ⋮ on the application
+3. Select **Delete**
+4. Confirm deletion
+
+### 8.2 Recreate via UI (Alternative Method)
+
+Instead of using `kubectl apply`, you can also create applications directly in the UI:
+
+1. Click **+ NEW APP** button
+2. Fill in the form:
+   - **Application Name**: microservices-demo
+   - **Project**: default
+   - **Sync Policy**: Manual
+   - **Repository URL**: https://github.com/GoogleCloudPlatform/microservices-demo.git
+   - **Revision**: HEAD
+   - **Path**: helm-chart
+   - **Cluster URL**: https://kubernetes.default.svc
+   - **Namespace**: microservices-demo
+3. Click **CREATE**
+
+### 8.3 Configure Helm Values via UI
+
+When creating via UI, you can also add Helm values:
+
+1. Scroll down to **HELM** section
+2. Click **VALUES FILES** or **PARAMETERS**
+3. Add custom values as needed
 
 ### 8.4 Verify Creation
 
-```bash
-argocd app list
-kubectl get applications -n argocd
-```
-
-### 8.5 Sync the Application
-
-```bash
-argocd app sync microservices-demo
-```
+In the UI:
+- The new application appears in the applications list
+- Click on it to view details
+- Sync it using the **SYNC** button
 
 ---
 
@@ -481,37 +432,37 @@ kubectl describe deployment frontend -n microservices-demo | grep -A 20 "Environ
 
 Try these challenges:
 
-### Exercise 1: Enable Auto-Sync
+### Exercise 1: Enable Auto-Sync via UI
 
-Modify the application to use automated sync with self-healing:
+Modify the application to use automated sync with self-healing using the UI:
 
-```yaml
-syncPolicy:
-  automated:
-    prune: true
-    selfHeal: true
-  syncOptions:
-  - CreateNamespace=true
-```
+1. Click on the **microservices-demo** application
+2. Click **APP DETAILS** button
+3. Scroll to **SYNC POLICY** section
+4. Click **ENABLE AUTO-SYNC**
+5. Check **PRUNE RESOURCES** and **SELF HEAL**
+6. Click **OK**
 
-Apply and test by manually scaling a deployment.
+Test by manually scaling a deployment - it should auto-revert!
 
-### Exercise 2: View Application Logs
+### Exercise 2: View Application Logs via UI
 
-Use Argo CD CLI to view logs from different services:
+Use Argo CD UI to view logs from different services:
 
-```bash
-argocd app logs microservices-demo --kind Deployment --name frontend
-argocd app logs microservices-demo --kind Deployment --name cartservice
-```
+1. Click on the **microservices-demo** application
+2. Click on a pod in the resource tree (e.g., frontend)
+3. Click the **LOGS** tab
+4. View real-time logs
+5. Try different pods to compare logs
 
-### Exercise 3: Explore Resource Details
+### Exercise 3: Explore Resource Details via UI
 
 In the UI, explore:
-- Pod resource usage
-- Service endpoints
-- ConfigMaps (if any)
-- Deployment strategies
+1. Click on different resources in the tree view
+2. View the **SUMMARY** tab for resource information
+3. Check the **EVENTS** tab for Kubernetes events
+4. Use the **MANIFEST** tab to see the full YAML
+5. Explore service endpoints and pod details
 
 ### Exercise 4: Simulate Service Failure
 
@@ -521,7 +472,11 @@ Delete a pod and watch Kubernetes and Argo CD recover it:
 kubectl delete pod -n microservices-demo -l app=frontend
 ```
 
-Watch in the UI how it's recreated.
+Watch in the UI:
+1. The pod disappears from the tree
+2. Kubernetes creates a new one automatically
+3. Watch it progress through ContainerCreating → Running
+4. Argo CD shows the recovery in real-time
 
 ---
 
@@ -569,11 +524,11 @@ kubectl port-forward -n microservices-demo svc/frontend-external 8081:80
 
 ### Problem: Application OutOfSync
 
-**Solution:** Refresh and check differences:
-```bash
-argocd app get microservices-demo --refresh
-argocd app diff microservices-demo
-```
+**Solution:** Refresh and check differences in the UI:
+1. Click on the application
+2. Click **REFRESH** button (circular arrow icon)
+3. Click **APP DIFF** to see what's different
+4. Sync if needed using the **SYNC** button
 
 ---
 
@@ -583,15 +538,22 @@ argocd app diff microservices-demo
 
 Keep the application running for Lab 3 (Drift Detection).
 
-### Option 2: Delete Application
+### Option 2: Delete Application via UI
+
+1. Go to the Applications view
+2. Click the three dots ⋮ on the microservices-demo application
+3. Select **Delete**
+4. In the dialog, check **Cascade** to delete all resources
+5. Confirm deletion
+
+### Option 3: Delete via kubectl
 
 ```bash
-argocd app delete microservices-demo
+# Delete the application (this removes all deployed resources)
+kubectl delete application microservices-demo -n argocd
 ```
 
-This will remove all deployed resources.
-
-### Option 3: Delete Only App Resources
+### Option 4: Delete Only App Resources
 
 ```bash
 # Delete namespace and all resources
@@ -611,11 +573,12 @@ Proceed to:
 
 ✅ Argo CD can manage complex multi-service applications  
 ✅ Applications connect Git repos to Kubernetes clusters  
-✅ Sync operations deploy complete application stacks from Git  
-✅ Both CLI and UI provide comprehensive visibility  
+✅ Sync operations via UI deploy complete application stacks from Git  
+✅ The UI provides comprehensive visibility and control  
 ✅ The UI visual graph helps understand service dependencies  
 ✅ Drift detection works across all application resources  
-✅ Declarative application definitions enable complete GitOps
+✅ Declarative application definitions enable complete GitOps  
+✅ The web interface makes GitOps accessible without CLI knowledge
 
 ---
 

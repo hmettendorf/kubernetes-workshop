@@ -9,8 +9,8 @@ In this lab, you'll install Argo CD on Rancher Desktop with k3s and configure ac
 **Learning Objectives:**
 - Install Argo CD on k3s using kubectl
 - Access the Argo CD web UI
-- Install and configure the Argo CD CLI
 - Understand Argo CD architecture components
+- Navigate the Argo CD web interface
 
 ---
 
@@ -20,6 +20,7 @@ In this lab, you'll install Argo CD on Rancher Desktop with k3s and configure ac
 - `kubectl` installed and configured
 - Port-forwarding capability (for UI access)
 - Internet access for downloading images
+- Web browser
 
 ### Verify Rancher Desktop Setup
 
@@ -149,82 +150,53 @@ Take a moment to explore:
 
 ---
 
-## Step 3: Install Argo CD CLI
+## Step 3: Explore the Argo CD UI
 
-### 3.1 Download the CLI
+### 3.1 Navigate Applications View
 
-**On Linux:**
-```bash
-curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-chmod +x argocd
-sudo mv argocd /usr/local/bin/
-```
+In the Argo CD UI:
+1. Click on **Applications** in the left sidebar
+2. This shows all deployed applications (currently empty)
+3. You can filter, sort, and search applications here
 
-**On macOS:**
-```bash
-brew install argocd
-```
+### 3.2 Explore Settings
 
-Or:
-```bash
-curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-darwin-amd64
-chmod +x argocd
-sudo mv argocd /usr/local/bin/
-```
+1. Click on **Settings** (gear icon) in the left sidebar
+2. Explore the available options:
+   - **Repositories** - Git repositories Argo CD can access
+   - **Clusters** - Kubernetes clusters Argo CD can deploy to
+   - **Projects** - Logical grouping of applications
+   - **Accounts** - User accounts and permissions
 
-**On Windows:**
-Download from: https://github.com/argoproj/argo-cd/releases/latest
+### 3.3 View Cluster Information
 
-### 3.2 Verify Installation
-
-```bash
-argocd version
-```
-
-You should see version information for the client.
+1. Go to **Settings** → **Clusters**
+2. You should see the `in-cluster` entry (where Argo CD is installed)
+3. Click on it to see cluster details and connection status
 
 ---
 
-## Step 4: Login via CLI
+## Step 4: Change Admin Password (Optional but Recommended)
 
-### 4.1 Login to Argo CD Server
+For security, change the default admin password via the UI:
 
+1. Click on **User Info** (person icon) in the left sidebar
+2. Click on **Update Password**
+3. Enter the current password (from Step 2.2)
+4. Enter and confirm a new password
+5. Click **Save**
+
+**Alternative: Change password via kubectl**
 ```bash
-argocd login localhost:8080
-```
+# Get current password first
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
 
-When prompted:
-- Accept the certificate warning: `y`
-- Username: `admin`
-- Password: (your admin password from Step 2.2)
-
-### 4.2 Verify Login
-
-```bash
-argocd cluster list
-```
-
-You should see your cluster listed:
-```
-SERVER                          NAME        VERSION  STATUS   MESSAGE
-https://kubernetes.default.svc  in-cluster  1.28     Unknown  Cluster has no application and not being monitored.
+# Then update in UI as described above
 ```
 
 ---
 
-## Step 5: Change Admin Password (Optional but Recommended)
-
-For security, change the default admin password:
-
-```bash
-argocd account update-password
-```
-
-Follow the prompts to set a new password.
-
----
-
-## Step 6: Explore Argo CD Components
+## Step 5: Explore Argo CD Components
 
 ### 6.1 View Argo CD Resources
 
@@ -245,39 +217,54 @@ kubectl get secrets -n argocd
 argocd version
 ```
 
-This shows both client and server versions.
+### 5.2 Check Argo CD Version
+
+In the UI:
+1. Click on **User Info** (person icon) → **About**
+2. You'll see the server version information
+
+**Or via kubectl:**
+
+```bash
+kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].spec.containers[0].image}'
+```
 
 ---
 
-## Step 7: Configure Cluster (if using external cluster)
+## Step 6: Configure Cluster (if using external cluster)
 
-If you want Argo CD to manage applications on external clusters:
+If you want Argo CD to manage applications on external clusters, you can add them via the UI:
 
-### 7.1 Add External Cluster
+### 6.1 Add External Cluster via UI
 
+1. Go to **Settings** → **Clusters**
+2. Click **+ Connect Cluster**
+3. Select the cluster from your kubeconfig or enter connection details
+4. Configure permissions and click **Create**
+
+> **Note:** For this workshop, we'll use the in-cluster context (where Argo CD is installed).
+
+**Alternative: Add via kubectl**
 ```bash
 # List available contexts
 kubectl config get-contexts
 
-# Add a cluster
-argocd cluster add <context-name>
+# Create a service account and get credentials
+# Then add via the UI using the Settings → Clusters interface
 ```
-
-> **Note:** For this workshop, we'll use the in-cluster context (where Argo CD is installed).
 
 ---
 
 ## Verification
 
-Run these commands to verify everything is working:
+Verify everything is working:
 
+1. **UI Access**: Navigate to `https://localhost:8080` and ensure you can log in
+2. **Applications View**: Verify the Applications page loads (should be empty)
+3. **Settings Access**: Check that you can access Settings and see the in-cluster
+
+**Via kubectl:**
 ```bash
-# Check Argo CD server status
-argocd version
-
-# List clusters
-argocd cluster list
-
 # Check UI access
 curl -k https://localhost:8080/healthz
 ```
@@ -317,8 +304,9 @@ kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -
 
 ### Problem: CLI login fails
 
-**Solution:** Make sure port-forward is running and use `--insecure` flag:
+**Solution:** Not applicable - we're using the web UI. If you need CLI access for debugging, make sure port-forward is running and use `--insecure` flag:
 ```bash
+# This is for advanced users only
 argocd login localhost:8080 --insecure
 ```
 
@@ -343,4 +331,4 @@ Now that Argo CD is installed and configured, proceed to:
 
 - [Argo CD Installation Docs](https://argo-cd.readthedocs.io/en/stable/getting_started/)
 - [Argo CD Architecture](https://argo-cd.readthedocs.io/en/stable/operator-manual/architecture/)
-- [CLI Reference](https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd/)
+- [Argo CD UI Overview](https://argo-cd.readthedocs.io/en/stable/user-guide/)
