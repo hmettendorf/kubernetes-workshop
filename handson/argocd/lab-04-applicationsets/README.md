@@ -186,7 +186,7 @@ kubectl get deployments -n shop-prod
 
 ---
 
-## Step 3: Git Directory Generator (Quick Example)
+## Step 3: Git Directory Generator (Conceptual)
 
 ### 3.1 Understanding Git Generator
 
@@ -194,39 +194,57 @@ The Git generator automatically creates Applications based on directories in a G
 
 **Use case:** Monorepo with multiple microservices, each in its own directory.
 
-**For this step, we'll use a lightweight example to demonstrate the concept without overwhelming resources.**
+**How it works:**
+1. The generator scans a Git repository
+2. Finds directories matching specified patterns
+3. Automatically creates an Application for each directory
+4. No need to manually create Application manifests
 
-### 3.2 Create Git Directory ApplicationSet
+### 3.2 Example Structure
 
-Create `appset-git-directories.yaml`:
+Imagine a monorepo like this:
+
+```
+my-microservices-repo/
+├── service-a/
+│   └── manifests/
+├── service-b/
+│   └── manifests/
+├── service-c/
+│   └── manifests/
+└── README.md
+```
+
+### 3.3 Git Directory Generator Example
+
+An ApplicationSet with Git generator would automatically create 3 applications:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: demo-apps-auto
+  name: microservices-monorepo
   namespace: argocd
 spec:
   generators:
   - git:
-      repoURL: https://github.com/argoproj/argocd-example-apps.git
+      repoURL: https://github.com/your-org/microservices-repo.git
       revision: HEAD
       directories:
-      - path: 'guestbook'
-      - path: 'helm-guestbook'
+      - path: 'service-*'  # Matches all directories starting with "service-"
   
   template:
     metadata:
-      name: 'auto-{{path.basename}}'
+      name: '{{path.basename}}'  # service-a, service-b, service-c
     spec:
       project: default
       source:
-        repoURL: https://github.com/argoproj/argocd-example-apps.git
+        repoURL: https://github.com/your-org/microservices-repo.git
         targetRevision: HEAD
-        path: '{{path}}'
+        path: '{{path}}/manifests'  # Each service's manifest directory
       destination:
         server: https://kubernetes.default.svc
-        namespace: 'auto-{{path.basename}}'
+        namespace: '{{path.basename}}'
       syncPolicy:
         automated:
           prune: true
@@ -235,35 +253,25 @@ spec:
         - CreateNamespace=true
 ```
 
-**Note:** We're using a filtered list of directories to avoid creating too many applications.
+**Result:** This single ApplicationSet would create and manage 3 Applications automatically!
 
-### 3.3 Apply Git Directory ApplicationSet
+### 3.4 Benefits
 
-```bash
-kubectl apply -f appset-git-directories.yaml
-```
+- **Automatic Discovery:** Add a new service directory → new Application created automatically
+- **Monorepo Friendly:** Perfect for organizations with all services in one repository
+- **No Manual Maintenance:** Don't need to create individual Application manifests
+- **Scales Easily:** Add 10 new services → 10 new Applications appear automatically
 
-### 3.4 View Generated Applications via UI
+### 3.5 Comparison to List Generator
 
-In the UI:
-1. Go to **Applications**
-2. Look for applications with names starting with `auto-`:
-   - auto-guestbook
-   - auto-helm-guestbook
-3. Click on them to see they were automatically created from Git directories
+| Feature | List Generator (Step 2) | Git Directory Generator |
+|---------|------------------------|-------------------------|
+| **Definition** | Manually list environments | Auto-discover from Git structure |
+| **Use Case** | Same app, multiple environments | Multiple apps in monorepo |
+| **Maintenance** | Manual list updates | Automatic discovery |
+| **Example** | shop-dev, shop-staging, shop-prod | service-a, service-b, service-c |
 
-**Also check via kubectl:**
-```bash
-kubectl get applications -n argocd | grep auto-
-```
-
-### 3.5 Clean Up (Optional)
-
-If you want to remove these demo apps:
-
-```bash
-kubectl delete applicationset demo-apps-auto -n argocd
-```
+**For this workshop:** We focus on the List generator (Step 2) as it's more commonly used for multi-environment deployments of the same application.
 
 ---
 
@@ -583,9 +591,6 @@ kubectl get applicationset <name> -n argocd -o jsonpath='{.status.conditions}'
 ```bash
 # Remove microservices environments
 kubectl delete applicationset microservices-environments -n argocd
-
-# Remove other examples if created
-kubectl delete applicationset demo-apps-auto -n argocd
 ```
 
 ### Clean Up Namespaces
@@ -593,9 +598,6 @@ kubectl delete applicationset demo-apps-auto -n argocd
 ```bash
 # Shop environments
 kubectl delete namespace shop-dev shop-staging shop-prod
-
-# Auto-generated (if you created the git directory example)
-kubectl delete namespace auto-guestbook auto-helm-guestbook
 ```
 
 **Note:** Deleting an ApplicationSet automatically deletes all Applications it generated, which in turn deletes all Kubernetes resources.
