@@ -109,14 +109,14 @@ app-of-apps-example/
 ├── root-app.yaml              # Root Application (deploy this to ArgoCD)
 └── apps/                      # Child applications
     ├── infrastructure/        # Infrastructure layer (sync-wave: 1)
-    │   ├── nginx-ingress.yaml
-    │   └── cert-manager.yaml
+    │   ├── infra-app-1.yaml   # Demo app (guestbook)
+    │   └── infra-app-2.yaml   # Demo app (helm-guestbook)
     ├── platform/             # Platform services layer (sync-wave: 2)
-    │   ├── redis.yaml
-    │   └── postgresql.yaml
+    │   ├── platform-app-1.yaml  # Demo app (guestbook)
+    │   └── platform-app-2.yaml  # Demo app (helm-guestbook)
     └── applications/         # Application layer (sync-wave: 3)
-        ├── frontend.yaml
-        └── backend.yaml
+        ├── frontend.yaml      # Demo app (guestbook)
+        └── backend.yaml       # Demo app (helm-guestbook)
 ```
 
 **Key Features:**
@@ -124,6 +124,9 @@ app-of-apps-example/
 - **Auto-sync**: All applications have automated sync enabled
 - **Self-Heal**: Changes are automatically reverted
 - **Prune**: Deleted resources are removed from cluster
+- **Demo Apps**: All apps deploy guestbook (for demonstration)
+
+**Note:** The application names represent their **organizational layer** (infrastructure, platform, application), not the actual technology being deployed. This is intentional to demonstrate the App of Apps pattern and sync wave ordering without requiring real infrastructure components.
 
 ---
 
@@ -207,12 +210,14 @@ kubectl apply -f root-app.yaml
 
 1. The **root-app** will appear first
 2. After syncing, 6 child applications will be created automatically:
-   - **Wave 1** (Infrastructure): nginx-ingress, cert-manager
-   - **Wave 2** (Platform): redis, postgresql  
-   - **Wave 3** (Applications): frontend, backend
+   - **Wave 1** (Infrastructure): infra-app-1, infra-app-2
+   - **Wave 2** (Platform): platform-app-1, platform-app-2
+   - **Wave 3** (Applications): app-frontend, app-backend
 
 3. Click on **root-app** to see the application tree
 4. Watch applications deploy in waves
+
+**Note:** All child applications deploy the same demo app (guestbook) but are organized into different layers and namespaces to demonstrate the App of Apps pattern, sync waves, and hierarchical organization.
 
 ### 6.2 Monitor via kubectl
 

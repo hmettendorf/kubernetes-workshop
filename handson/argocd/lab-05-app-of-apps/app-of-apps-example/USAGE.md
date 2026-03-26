@@ -58,9 +58,11 @@ kubectl apply -f root-app.yaml
 In the ArgoCD UI:
 - You'll see the `root-app` appear first
 - Then 6 child applications will be created automatically:
-  - Wave 1 (Infrastructure): nginx-ingress, cert-manager
-  - Wave 2 (Platform): redis, postgresql
-  - Wave 3 (Applications): frontend, backend
+  - Wave 1 (Infrastructure): infra-app-1, infra-app-2
+  - Wave 2 (Platform): platform-app-1, platform-app-2
+  - Wave 3 (Applications): app-frontend, app-backend
+
+**Note:** These are demo applications (guestbook) organized into layers to demonstrate the App of Apps pattern and sync waves.
 
 ## What You'll See
 
@@ -88,7 +90,7 @@ kubectl get pods -n applications
 
 ### Add a new infrastructure component
 
-Create `apps/infrastructure/monitoring.yaml`:
+Create `apps/infrastructure/demo-app-3.yaml`:
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -118,7 +120,7 @@ spec:
 
 Commit and push:
 ```bash
-git add apps/infrastructure/monitoring.yaml
+git add apps/infrastructure/demo-app-3.yaml
 git commit -m "Add monitoring to infrastructure"
 git push
 ```

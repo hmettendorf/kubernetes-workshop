@@ -1,10 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cert-manager
+  name: platform-app-2
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "2"
+    description: "Demo platform app (helm-guestbook)"
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
@@ -13,11 +14,11 @@ spec:
   source:
     repoURL: https://github.com/argoproj/argocd-example-apps.git
     targetRevision: HEAD
-    path: guestbook
+    path: helm-guestbook
   
   destination:
     server: https://kubernetes.default.svc
-    namespace: infrastructure
+    namespace: platform
   
   syncPolicy:
     automated:

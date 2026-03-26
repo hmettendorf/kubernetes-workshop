@@ -10,14 +10,14 @@ app-of-apps-example/
 ├── root-app.yaml              # Root Application (deploy this to ArgoCD)
 └── apps/                      # Child applications
     ├── infrastructure/        # Infrastructure layer
-    │   ├── nginx-ingress.yaml
-    │   └── cert-manager.yaml
+    │   ├── infra-app-1.yaml   # Demo app (guestbook)
+    │   └── infra-app-2.yaml   # Demo app (helm-guestbook)
     ├── platform/             # Platform services layer
-    │   ├── redis.yaml
-    │   └── postgresql.yaml
+    │   ├── platform-app-1.yaml  # Demo app (guestbook)
+    │   └── platform-app-2.yaml  # Demo app (helm-guestbook)
     └── applications/         # Application layer
-        ├── frontend.yaml
-        └── backend.yaml
+        ├── frontend.yaml      # Demo app (guestbook)
+        └── backend.yaml       # Demo app (helm-guestbook)
 ```
 
 ## How to Use
@@ -57,16 +57,16 @@ Option B: Via ArgoCD UI
 ### 3. Watch the magic happen!
 
 The root application will automatically create all child applications:
-- Infrastructure layer: nginx-ingress, cert-manager
-- Platform layer: redis, postgresql
-- Application layer: frontend, backend
+- Infrastructure layer: infra-app-1, infra-app-2
+- Platform layer: platform-app-1, platform-app-2
+- Application layer: app-frontend, app-backend
 
 ## Deployment Order
 
 Applications are deployed in waves using sync-wave annotations:
-- Wave 1: Infrastructure (nginx-ingress, cert-manager)
-- Wave 2: Platform (redis, postgresql)
-- Wave 3: Applications (frontend, backend)
+- Wave 1: Infrastructure (infra-app-1, infra-app-2)
+- Wave 2: Platform (platform-app-1, platform-app-2)
+- Wave 3: Applications (app-frontend, app-backend)
 
 This ensures dependencies are met before dependent services start.
 
@@ -81,6 +81,8 @@ To add a new application:
 ## Notes
 
 - All applications in this example use the `argoproj/argocd-example-apps` repository
-- This is for demonstration purposes
+- **These are demo apps (guestbook)** - not real infrastructure components
+- The names (infra-app-1, platform-app-1, etc.) represent the **layer/tier**, not the actual technology
+- This is for demonstration purposes to show the App of Apps pattern
 - In production, point to your actual application repositories
 - Adjust sync policies (auto-sync, prune, self-heal) as needed

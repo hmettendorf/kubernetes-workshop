@@ -1,10 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: nginx-ingress
+  name: infra-app-2
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    description: "Demo infrastructure app (helm-guestbook)"
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
